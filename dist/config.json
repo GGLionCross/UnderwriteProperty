@@ -1,0 +1,18 @@
+{
+  "targets": {
+    "property_address": ""
+  },
+  "propstream": {
+    "email": "",
+    "password": ""
+  },
+  "compass": {
+    "email": "",
+    "password": ""
+  },
+  "timeouts": {
+    "default": 10,
+    "login": 60,
+    "search": 30
+  }
+}
