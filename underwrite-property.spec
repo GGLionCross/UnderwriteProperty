@@ -44,4 +44,27 @@ exe = EXE(
 )
 
 import shutil
+import os
+import subprocess
+
+# Copies config.json and README.me to DISTPATH
 shutil.copyfile('config.json', '{0}/config.json'.format(DISTPATH))
+shutil.copyfile('README.md', '{0}/README.md'.format(DISTPATH))
+
+path_7zip = r"C:\Program Files\7-Zip\7z.exe"
+outfile_name = "underwrite-property.zip"
+
+def sevenzip(filename, zipname):
+    system = subprocess.Popen([path_7zip, "a", zipname, filename])
+    return(system.communicate())
+
+# Zips all files in distribution to under-property.zip
+sevenzip(f"{SPECPATH}\\dist\\*", outfile_name)
+
+# Copies all files in distribution to untracked folder for personal usage
+UNTRACKED = f"{SPECPATH}\\..\\Untracked Files\\UnderwriteProperty"
+shutil.copytree(DISTPATH, UNTRACKED, dirs_exist_ok=True)
+
+# Overwrite Untracked Files\config.json with Untracked Files\keep-config.json
+# This is so I don't have to keep updating my creds in config.json
+shutil.copyfile('{0}/keep-config.json'.format(UNTRACKED), '{0}/config.json'.format(UNTRACKED))

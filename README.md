@@ -23,3 +23,4 @@ shutil.copyfile('config.json', '{0}/config.json'.format(DISTPATH))
 
 ---build---
 pyinstaller --clean underwrite-property.spec
+Note: This build also copies ./config.json and ./README.md to ./dist and zips ./dist to ./underwrite-property.zip

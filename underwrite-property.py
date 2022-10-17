@@ -163,17 +163,22 @@ def main():
   notes += "Amount under asking \n\n"
 
   notes += "Comp\n"
-  notes += "-#### Street, City\n"
+  notes += "-#### Street\n"
   notes += "-Sold on mm/dd/yy for $___k\n"
   notes += "-Pool: \n"
   notes += "Compass link\n\n"
 
   notes += "ARV Adjustments\n"
-  notes += "-Compass Sold For: \n"
+  notes += "-Comp Sold For: \n"
+  notes += "-Comp has extra bed: -$10k\n"
+  notes += "-Comp has extra bath: -$10k\n"
   notes += "Final ARV: \n\n"
 
   notes += "Reno:\n"
-  notes += f"-Tier 2 ($60/sf): {'${:,}'.format(propstream_info['square_footage'] * 60)} on {'{:,}'.format(propstream_info['square_footage'])}"
+  notes += f"-Tier 1 ($30/sf): {'${:,}'.format(propstream_info['square_footage'] * 30)} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
+  notes += f"-Tier 1.5 ($45/sf): {'${:,}'.format(propstream_info['square_footage'] * 45)} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
+  notes += f"-Tier 2 ($60/sf): {'${:,}'.format(propstream_info['square_footage'] * 60)} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
+  notes += f"-Tier 3 ($90/sf): {'${:,}'.format(propstream_info['square_footage'] * 90)} on {'{:,}'.format(propstream_info['square_footage'])}sf"
   send_text_to_word_counter(notes)
   # send_text_to_word_counter("Hi")
 
