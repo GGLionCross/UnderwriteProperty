@@ -162,13 +162,13 @@ def main():
   notes += "% of ARV \n"
   notes += "Amount under asking \n\n"
 
-  notes += "Comp\n"
+  notes += "Comp:\n"
   notes += "-#### Street\n"
   notes += "-Sold on mm/dd/yy for $___k\n"
   notes += "-Pool: \n"
   notes += "Compass link\n\n"
 
-  notes += "ARV Adjustments\n"
+  notes += "ARV Adjustments:\n"
   notes += "-Comp Sold For: \n"
   notes += "-Comp has extra bed: -$10k\n"
   notes += "-Comp has extra bath: -$10k\n"
