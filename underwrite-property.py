@@ -144,21 +144,21 @@ def get_info_from_redfin(property_address):
   try:
     redfin_link = driver.find_element(By.CSS_SELECTOR, f"a[href*='{URL_REDFIN}']")
     redfin_link.click()
-    try:
-      mls_number = WebDriverWait(driver, DEFAULT_TIMEOUT).until(EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'sourceContent)]/span[2]"))).text
-    except TimeoutException:
-      pass
-    try:
-      ask_price = WebDriverWait(driver, DEFAULT_TIMEOUT).until(EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'statsValue')]"))).text
-    except TimeoutException:
-      pass
-    pictures = driver.current_url
   except:
     return {
       "mls_number": mls_number,
       "ask_price": ask_price,
       "pictures": pictures
     }
+  try:
+    mls_number = WebDriverWait(driver, DEFAULT_TIMEOUT).until(EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'sourceContent')]/span[2]"))).text
+  except TimeoutException:
+    pass
+  try:
+    ask_price = WebDriverWait(driver, DEFAULT_TIMEOUT).until(EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'statsValue')]"))).text
+  except TimeoutException:
+    pass
+  pictures = driver.current_url
   return {
     "mls_number": mls_number,
     "ask_price": ask_price,
