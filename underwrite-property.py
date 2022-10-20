@@ -2,12 +2,13 @@ import datetime
 from dateutil.relativedelta import relativedelta
 import json
 from selenium import webdriver
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+from webdriver_manager.chrome import ChromeDriverManager
 
 with open("config.json", "r") as f:
     cfg = json.load(f)
@@ -20,6 +21,7 @@ COMPASS_PASSWORD = cfg["compass"]["password"]
 DEFAULT_TIMEOUT = cfg["timeouts"]["default"]
 LOGIN_TIMEOUT = cfg["timeouts"]["login"]
 SEARCH_TIMEOUT = cfg["timeouts"]["search"]
+URL_REDFIN = "https://www.redfin.com/"
 
 def initialize_chrome_options():
   # Initialize special chrome options for selenium to utilize
@@ -114,7 +116,10 @@ def sign_into_compass(email, password):
   WebDriverWait(driver, LOGIN_TIMEOUT).until(EC.staleness_of(forgot_password))
 
 def get_info_from_compass(property_address):
-  search = WebDriverWait(driver, SEARCH_TIMEOUT).until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[aria-describedBy='location-lookup-input-description']")))
+  try:
+    search = WebDriverWait(driver, SEARCH_TIMEOUT).until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[aria-describedBy='location-lookup-input-description']")))
+  except TimeoutException:
+    return 1
   search.click()
   search.send_keys(property_address)
   mls_number = WebDriverWait(driver, SEARCH_TIMEOUT).until(EC.presence_of_element_located((By.XPATH, "//th[text()='MLS #']/following-sibling::td"))).text
@@ -125,7 +130,39 @@ def get_info_from_compass(property_address):
   return {
     "mls_number": mls_number,
     "ask_price": ask_price,
-    "compass_link": driver.current_url
+    "pictures": driver.current_url
+  }
+
+def get_info_from_redfin(property_address):
+  mls_number = ""
+  ask_price = ""
+  pictures = ""
+  driver.get("https://www.google.com/")
+  search = driver.find_element(By.CSS_SELECTOR, "input[title='Search']")
+  search.send_keys(f"redfin {property_address}")
+  driver.find_element(By.CSS_SELECTOR, "input[value='Google Search']").submit()
+  try:
+    redfin_link = driver.find_element(By.CSS_SELECTOR, f"a[href*='{URL_REDFIN}']")
+    redfin_link.click()
+    try:
+      mls_number = WebDriverWait(driver, DEFAULT_TIMEOUT).until(EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'sourceContent)]/span[2]"))).text
+    except TimeoutException:
+      pass
+    try:
+      ask_price = WebDriverWait(driver, DEFAULT_TIMEOUT).until(EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'statsValue')]"))).text
+    except TimeoutException:
+      pass
+    pictures = driver.current_url
+  except:
+    return {
+      "mls_number": mls_number,
+      "ask_price": ask_price,
+      "pictures": pictures
+    }
+  return {
+    "mls_number": mls_number,
+    "ask_price": ask_price,
+    "pictures": pictures
   }
 
 def send_text_to_word_counter(text):
@@ -142,17 +179,19 @@ def main():
   driver.execute_script("window.open('https://www.compass.com/');")
   switch_to_recently_opened_tab()
   sign_into_compass(COMPASS_EMAIL, COMPASS_PASSWORD)
-  compass_info = get_info_from_compass(PROPERTY_ADDRESS)
+  listing_info = get_info_from_compass(PROPERTY_ADDRESS)
+  if listing_info == 1:
+    listing_info = get_info_from_redfin(PROPERTY_ADDRESS)
 
   notes = PROPERTY_ADDRESS + "\n"
-  notes += f"-MLS #: {compass_info['mls_number']}\n"
+  notes += f"-MLS #: {listing_info['mls_number']}\n"
   notes += f"-Owner: {propstream_info['owner']}\n"
   notes += f"-Est. Mortgage: {propstream_info['mortgage']}\n"
   notes += "-Pool: \n"
-  notes += f"Pictures: {compass_info['compass_link']}\n\n"
+  notes += f"Pictures: {listing_info['pictures']}\n\n"
 
   notes += f"*ORIGINAL {datetime.date.today().strftime('%m/%d/%y')}*\n"
-  notes += f"Asking Price {compass_info['ask_price']}\n"
+  notes += f"Asking Price {listing_info['ask_price']}\n"
   notes += "ARV \n"
   notes += "Repairs \n"
   notes += "Your Fee $15,000\n"
