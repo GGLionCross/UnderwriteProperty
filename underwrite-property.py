@@ -116,13 +116,13 @@ def sign_into_compass(email, password):
   WebDriverWait(driver, LOGIN_TIMEOUT).until(EC.staleness_of(forgot_password))
 
 def get_info_from_compass(property_address):
-  try:
-    search = WebDriverWait(driver, SEARCH_TIMEOUT).until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[aria-describedBy='location-lookup-input-description']")))
-  except TimeoutException:
-    return 1
+  search = WebDriverWait(driver, SEARCH_TIMEOUT).until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[aria-describedBy='location-lookup-input-description']")))
   search.click()
   search.send_keys(property_address)
-  mls_number = WebDriverWait(driver, SEARCH_TIMEOUT).until(EC.presence_of_element_located((By.XPATH, "//th[text()='MLS #']/following-sibling::td"))).text
+  try:
+    mls_number = WebDriverWait(driver, SEARCH_TIMEOUT).until(EC.presence_of_element_located((By.XPATH, "//th[text()='MLS #']/following-sibling::td"))).text
+  except TimeoutException:
+    return 1
   try:
     ask_price = driver.find_element(By.XPATH, "//div[text()='Price']//preceding-sibling::div").text
   except:
