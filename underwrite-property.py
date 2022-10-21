@@ -14,6 +14,7 @@ with open("config.json", "r") as f:
     cfg = json.load(f)
   
 PROPERTY_ADDRESS = cfg["targets"]["property_address"]
+IS_CONDO = cfg["targets"]["condo"]
 PROPSTREAM_EMAIL = cfg["propstream"]["email"]
 PROPSTREAM_PASSWORD = cfg["propstream"]["password"]
 COMPASS_EMAIL = cfg["compass"]["email"]
@@ -58,13 +59,14 @@ def get_info_from_propstream(property_address):
   WebDriverWait(driver, DEFAULT_TIMEOUT).until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[placeholder='Enter County, City, Zip Code(s) or APN #']")))
   driver.find_element(By.CSS_SELECTOR, "input[placeholder='Enter County, City, Zip Code(s) or APN #']").send_keys(property_address)
   
-  # Click Details button
-  details = WebDriverWait(driver, SEARCH_TIMEOUT).until(EC.presence_of_element_located((By.XPATH, "//span[text()='Details']")))
-  actions.move_to_element(details).perform()
-  details.click()
+  if not IS_CONDO:
+    # Click Details button
+    details = WebDriverWait(driver, SEARCH_TIMEOUT).until(EC.presence_of_element_located((By.XPATH, "//span[text()='Details']")))
+    actions.move_to_element(details).perform()
+    details.click()
 
   # Grab owner and mortgage info
-  WebDriverWait(driver, DEFAULT_TIMEOUT).until(EC.presence_of_element_located((By.XPATH, "//div[text()='Owner 1 Name']/following-sibling::div")))
+  WebDriverWait(driver, SEARCH_TIMEOUT).until(EC.presence_of_element_located((By.XPATH, "//div[text()='Owner 1 Name']/following-sibling::div")))
   owner = driver.find_element(By.XPATH, "//div[text()='Owner 1 Name']/following-sibling::div").text
   mortgage = driver.find_element(By.XPATH, "//div[text()='Est. Mortgage Balance']/preceding-sibling::div").text
   driver.find_element(By.XPATH, "//div[text()='Comparables & Nearby Listings']").click()
