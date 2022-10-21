@@ -1,5 +1,5 @@
 import datetime
-from dateutil.relativedelta import relativedelta
+#from dateutil.relativedelta import relativedelta
 import json
 from selenium import webdriver
 from selenium.common.exceptions import TimeoutException
@@ -129,9 +129,14 @@ def get_info_from_compass(property_address):
     ask_price = driver.find_element(By.XPATH, "//div[text()='Price']//preceding-sibling::div").text
   except:
     ask_price = "N/A"
+  try:
+    days_on_market = "Days on Compass: " + driver.find_element(By.XPATH, "//th[text()='Days on Compass']/following-sibling::td").text
+  except TimeoutException:
+    days_on_market = "Days on Compass: N/A"
   return {
     "mls_number": mls_number,
     "ask_price": ask_price,
+    "days_on_market": days_on_market,
     "pictures": driver.current_url
   }
 
@@ -160,10 +165,15 @@ def get_info_from_redfin(property_address):
     ask_price = WebDriverWait(driver, DEFAULT_TIMEOUT).until(EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'statsValue')]"))).text
   except TimeoutException:
     pass
+  try:
+    days_on_market = "Time on Redfin: " + driver.find_element(By.XPATH, "//span[contains(text(), 'Time on Redfin')]/ancestor::span[contains(@class,'header')]/following-sibling::span").text
+  except:
+    days_on_market = "Time on Redfin: N/A"
   pictures = driver.current_url
   return {
     "mls_number": mls_number,
     "ask_price": ask_price,
+    "days_on_market": days_on_market,
     "pictures": pictures
   }
 
@@ -187,6 +197,8 @@ def main():
 
   notes = PROPERTY_ADDRESS + "\n"
   notes += f"-MLS #: {listing_info['mls_number']}\n"
+  notes += f"-{listing_info['days_on_market']}\n"
+  notes += f"-Listed by: (copy info over from Zillow)\n"
   notes += f"-Owner: {propstream_info['owner']}\n"
   notes += f"-Est. Mortgage: {propstream_info['mortgage']}\n"
   notes += "-Pool: \n"
