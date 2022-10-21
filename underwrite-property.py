@@ -2,6 +2,7 @@ import datetime
 #from dateutil.relativedelta import relativedelta
 import json
 from selenium import webdriver
+from selenium.common.exceptions import NoSuchElementException
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.action_chains import ActionChains
@@ -141,12 +142,15 @@ def get_info_from_compass(property_address):
     ask_price = "N/A"
   try:
     days_on_market = "Days on Compass: " + driver.find_element(By.XPATH, "//th[text()='Days on Compass']/following-sibling::td").text
-  except TimeoutException:
+  except NoSuchElementException:
     days_on_market = "Days on Compass: N/A"
   try:
     pool_type = driver.find_element(By.XPATH, "//div[contains(text(), 'Pool Type: ')]/span").text
-  except TimeoutException:
-    pool_type = "Didn't find on Compass"
+  except NoSuchElementException:
+    try:
+      pool_type = driver.find_element(By.XPATH, "//span[contains(text(), 'Private Pool')]/follow-sibling::div").text
+    except NoSuchElementException:
+      pool_type = "Didn't find on Compass"
   return {
     "mls_number": mls_number,
     "agent_info": agent_info,
