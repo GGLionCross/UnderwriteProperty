@@ -11,8 +11,9 @@ from selenium.webdriver.support.ui import WebDriverWait
 from webdriver_manager.chrome import ChromeDriverManager
 
 with open("config.json", "r") as f:
-    cfg = json.load(f)
-  
+  cfg = json.load(f)
+
+CURRENT_DATE = datetime.date.today().strftime('%m/%d/%y')  
 PROPERTY_ADDRESS = cfg["targets"]["property_address"]
 IS_CONDO = cfg["targets"]["condo"]
 PROPSTREAM_EMAIL = cfg["propstream"]["email"]
@@ -223,14 +224,14 @@ def main():
 
   notes = PROPERTY_ADDRESS + "\n"
   notes += f"-MLS #: {listing_info['mls_number']}\n"
-  notes += f"-{listing_info['days_on_market']}\n"
+  notes += f"-{listing_info['days_on_market']} as of {CURRENT_DATE}\n"
   notes += f"-{listing_info['agent_info']}\n"
   notes += f"-Owner: {propstream_info['owner']}\n"
   notes += f"-Est. Mortgage: {propstream_info['mortgage']}\n"
   notes += f"-Pool: {listing_info['pool_status']}\n"
   notes += f"Pictures: {listing_info['pictures']}\n\n"
 
-  notes += f"*ORIGINAL {datetime.date.today().strftime('%m/%d/%y')}*\n"
+  notes += f"*ORIGINAL {CURRENT_DATE}*\n"
   notes += f"Asking Price {listing_info['ask_price']}\n"
   notes += "ARV \n"
   notes += "Repairs \n"
