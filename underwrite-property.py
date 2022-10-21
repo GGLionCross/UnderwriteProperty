@@ -126,6 +126,15 @@ def get_info_from_compass(property_address):
   except TimeoutException:
     return 1
   try:
+    agent_info_1 = driver.find_element(By.XPATH, "//div[contains(text(), 'Listed by')]").text
+    try:
+      agent_info_2 = "\n-" + driver.find_element(By.XPATH, "//div[contains(text(), 'Listed by')]/following-sibling::div").text
+    except:
+      agent_info_2 = ""
+    agent_info = agent_info_1 + agent_info_2
+  except:
+    agent_info = ""
+  try:
     ask_price = driver.find_element(By.XPATH, "//div[text()='Price']//preceding-sibling::div").text
   except:
     ask_price = "N/A"
@@ -133,17 +142,20 @@ def get_info_from_compass(property_address):
     days_on_market = "Days on Compass: " + driver.find_element(By.XPATH, "//th[text()='Days on Compass']/following-sibling::td").text
   except TimeoutException:
     days_on_market = "Days on Compass: N/A"
+  try:
+    pool_type = driver.find_element(By.XPATH, "//div[contains(text(), 'Pool Type: ')]/span").text
+  except TimeoutException:
+    pool_type = "Didn't find on Compass"
   return {
     "mls_number": mls_number,
+    "agent_info": agent_info,
     "ask_price": ask_price,
     "days_on_market": days_on_market,
+    "pool_status": pool_type,
     "pictures": driver.current_url
   }
 
 def get_info_from_redfin(property_address):
-  mls_number = ""
-  ask_price = ""
-  pictures = ""
   driver.get("https://www.google.com/")
   search = driver.find_element(By.CSS_SELECTOR, "input[title='Search']")
   search.send_keys(f"redfin {property_address}")
@@ -152,28 +164,33 @@ def get_info_from_redfin(property_address):
     redfin_link = driver.find_element(By.CSS_SELECTOR, f"a[href*='{URL_REDFIN}']")
     redfin_link.click()
   except:
-    return {
-      "mls_number": mls_number,
-      "ask_price": ask_price,
-      "pictures": pictures
-    }
+    return 1
   try:
     mls_number = WebDriverWait(driver, DEFAULT_TIMEOUT).until(EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'sourceContent')]/span[2]"))).text
-  except TimeoutException:
-    pass
+  except:
+    return 1
   try:
-    ask_price = WebDriverWait(driver, DEFAULT_TIMEOUT).until(EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'statsValue')]"))).text
-  except TimeoutException:
-    pass
+    agent_name = driver.find_element(By.XPATH, "//span[contains(text(), 'Listed by')]/span[1]").text
+    agent_dre = driver.find_element(By.XPATH, "//span[contains(text(), 'Listed by')]/span[2]").text
+    agent_broker = driver.find_element(By.XPATH, "//span[contains(text(), 'Listed by')]/span[3]").text
+    agent_info = f"Listed by {agent_name} {agent_dre} {agent_broker}"
+  except:
+    agent_info = ""
+  try:
+    ask_price = driver.find_element(By.XPATH, "//div[contains(@class, 'statsValue')]").text
+  except:
+    ask_price = "Couldn't find Ask Price on Redfin"
   try:
     days_on_market = "Time on Redfin: " + driver.find_element(By.XPATH, "//span[contains(text(), 'Time on Redfin')]/ancestor::span[contains(@class,'header')]/following-sibling::span").text
   except:
-    days_on_market = "Time on Redfin: N/A"
+    days_on_market = "Time on Redfin: Could not find Time on Redfin"
   pictures = driver.current_url
   return {
     "mls_number": mls_number,
+    "agent_info": agent_info,
     "ask_price": ask_price,
     "days_on_market": days_on_market,
+    "pool_status": "Redfin doesn't list pool status",
     "pictures": pictures
   }
 
@@ -194,14 +211,23 @@ def main():
   listing_info = get_info_from_compass(PROPERTY_ADDRESS)
   if listing_info == 1:
     listing_info = get_info_from_redfin(PROPERTY_ADDRESS)
+  if listing_info == 1:
+    listing_info = {
+      "mls_number": "Couldn't find on Compass or Redfin",
+      "agent_info": "Listed by: Couldn't find on Compass or Redfin",
+      "ask_price": "Couldn't find on Compass or Redfin",
+      "days_on_market": "DOM: Couldn't find on Compass or Redfin",
+      "pool_status": "Couldn't find on Compass or Redfin",
+      "pictures": "Couldn't find on Compass or Redfin"
+    }
 
   notes = PROPERTY_ADDRESS + "\n"
   notes += f"-MLS #: {listing_info['mls_number']}\n"
   notes += f"-{listing_info['days_on_market']}\n"
-  notes += f"-Listed by: (copy info over from Zillow)\n"
+  notes += f"-{listing_info['agent_info']}\n"
   notes += f"-Owner: {propstream_info['owner']}\n"
   notes += f"-Est. Mortgage: {propstream_info['mortgage']}\n"
-  notes += "-Pool: \n"
+  notes += f"-Pool: {listing_info['pool_status']}\n"
   notes += f"Pictures: {listing_info['pictures']}\n\n"
 
   notes += f"*ORIGINAL {datetime.date.today().strftime('%m/%d/%y')}*\n"
