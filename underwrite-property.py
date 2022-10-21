@@ -270,8 +270,8 @@ def main():
   notes += f"-Tier 1 ($30/sf): {tier_1} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
   notes += f"-Tier 1.5 ($45/sf): {tier_1_5} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
   notes += f"-Tier 2 ($60/sf): {tier_2} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
-  notes += f"-Tier 2.5 ($75/sf): {tier_2_5} on {'{:,}'.format(propstream_info['square_footage'])}sf"
-  notes += f"-Tier 3 ($90/sf): {tier_3} on {'{:,}'.format(propstream_info['square_footage'])}sf"
+  notes += f"-Tier 2.5 ($75/sf): {tier_2_5} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
+  notes += f"-Tier 3 ($90/sf): {tier_3} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
   notes += f"-Tier 3.5 ($105/sf): {tier_3_5} on {'{:,}'.format(propstream_info['square_footage'])}sf"
   send_text_to_word_counter(notes)
   # send_text_to_word_counter("Hi")
