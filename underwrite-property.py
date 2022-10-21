@@ -254,11 +254,21 @@ def main():
   notes += "-Comp has extra bath: -$10k\n"
   notes += "Final ARV: \n\n"
 
+  tier_1 = '${:,}'.format(propstream_info['square_footage'] * 30)
+  tier_1_5 = '${:,}'.format(propstream_info['square_footage'] * 45)
+  tier_2 = '${:,}'.format(propstream_info['square_footage'] * 60)
+  tier_2_5 = '${:,}'.format(propstream_info['square_footage'] * 75)
+  tier_3 = '${:,}'.format(propstream_info['square_footage'] * 90)
+  tier_3_5 = '${:,}'.format(propstream_info['square_footage'] * 105)
+
+
   notes += "Reno:\n"
-  notes += f"-Tier 1 ($30/sf): {'${:,}'.format(propstream_info['square_footage'] * 30)} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
-  notes += f"-Tier 1.5 ($45/sf): {'${:,}'.format(propstream_info['square_footage'] * 45)} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
-  notes += f"-Tier 2 ($60/sf): {'${:,}'.format(propstream_info['square_footage'] * 60)} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
-  notes += f"-Tier 3 ($90/sf): {'${:,}'.format(propstream_info['square_footage'] * 90)} on {'{:,}'.format(propstream_info['square_footage'])}sf"
+  notes += f"-Tier 1 ($30/sf): {tier_1} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
+  notes += f"-Tier 1.5 ($45/sf): {tier_1_5} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
+  notes += f"-Tier 2 ($60/sf): {tier_2} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
+  notes += f"-Tier 2.5 ($75/sf): {tier_2_5} on {'{:,}'.format(propstream_info['square_footage'])}sf"
+  notes += f"-Tier 3 ($90/sf): {tier_3} on {'{:,}'.format(propstream_info['square_footage'])}sf"
+  notes += f"-Tier 3.5 ($105/sf): {tier_3_5} on {'{:,}'.format(propstream_info['square_footage'])}sf"
   send_text_to_word_counter(notes)
   # send_text_to_word_counter("Hi")
 
