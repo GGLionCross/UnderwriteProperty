@@ -148,7 +148,7 @@ def get_info_from_compass(property_address):
     pool_type = driver.find_element(By.XPATH, "//div[contains(text(), 'Pool Type: ')]/span").text
   except NoSuchElementException:
     try:
-      pool_type = driver.find_element(By.XPATH, "//span[contains(text(), 'Private Pool')]/follow-sibling::div").text
+      pool_type = driver.find_element(By.XPATH, "//span[contains(text(), 'Private Pool')]/following-sibling::div").text
     except NoSuchElementException:
       pool_type = "Didn't find on Compass"
   return {
