@@ -275,7 +275,7 @@ def main():
   notes += f"-Pool: {listing_info['pool_status']}\n"
   notes += f"Pictures: {listing_info['pictures']}\n"
   notes += "Listing Remarks:\n"
-  notes += f"{listing_info['remarks']}\n\n"
+  notes += f"\"{listing_info['remarks']}\"\n\n"
 
   notes += f"*ORIGINAL {CURRENT_DATE}*\n"
   notes += f"Asking Price {listing_info['ask_price']}\n"
