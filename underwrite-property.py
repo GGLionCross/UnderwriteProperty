@@ -128,7 +128,9 @@ def get_info_from_compass(property_address):
   except TimeoutException:
     return 1
   try:
-    description = driver.find_element(By.XPATH, "//div[contains(@class, 'textIntent-body')]/div/span[2]").text
+    description_xpath = "//div[contains(@class, 'textIntent-body')]/div/span[2]"
+    # Wait for description to be non-empty
+    description = WebDriverWait(driver, DEFAULT_TIMEOUT).until(lambda: driver.find_element(By.XPATH, description_xpath).text.strip() != "")
   except:
     description = "Couldn't locate on Compass"
   try:
