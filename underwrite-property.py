@@ -11,6 +11,21 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from webdriver_manager.chrome import ChromeDriverManager
 
+def print_cyan(text):
+  print("\033[96m {}\033[00m" .format(text))
+
+def print_green(text):
+  print("\033[92m {}\033[00m" .format(text))
+
+def print_red(text):
+  print("\033[91m {}\033[00m".format(text))
+
+def print_purple(text):
+  print("\033[94m {}\033[00m" .format(text))
+
+def print_yellow(text):
+  print("\033[93m {}\033[00m" .format(text))
+
 with open("config.json", "r") as f:
   cfg = json.load(f)
 
@@ -128,23 +143,26 @@ def get_info_from_compass(property_address):
   except TimeoutException:
     return 1
   try:
-    description_xpath = "//div[contains(@class, 'textIntent-body')]/div/span[2]"
-    # Wait for description to be non-empty
-    description = WebDriverWait(driver, DEFAULT_TIMEOUT).until(lambda: driver.find_element(By.XPATH, description_xpath).text.strip() != "")
-  except:
+    description_xpath = "//div[contains(@class, 'textIntent-body')]/div/span"
+    description = driver.find_element(By.XPATH, description_xpath).text
+  except Exception as e:
+    print_red(e)
     description = "Couldn't locate on Compass"
   try:
     agent_info_1 = driver.find_element(By.XPATH, "//div[contains(text(), 'Listed by')]").text
     try:
       agent_info_2 = "\n-" + driver.find_element(By.XPATH, "//div[contains(text(), 'Listed by')]/following-sibling::div").text
-    except:
+    except Exception as e:
+      print_red(e)
       agent_info_2 = ""
     agent_info = agent_info_1 + agent_info_2
-  except:
+  except Exception as e:
+    print_red(e)
     agent_info = ""
   try:
     ask_price = driver.find_element(By.XPATH, "//div[text()='Price']//preceding-sibling::div").text
-  except:
+  except Exception as e:
+    print_red(e)
     ask_price = "N/A"
   try:
     days_on_market = "Days on Compass: " + driver.find_element(By.XPATH, "//th[text()='Days on Compass']/following-sibling::td").text
@@ -175,30 +193,36 @@ def get_info_from_redfin(property_address):
   try:
     redfin_link = driver.find_element(By.CSS_SELECTOR, f"a[href*='{URL_REDFIN}']")
     redfin_link.click()
-  except:
+  except Exception as e:
+    print_red(e)
     return 1
   try:
     mls_number = WebDriverWait(driver, DEFAULT_TIMEOUT).until(EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'sourceContent')]/span[2]"))).text
-  except:
+  except Exception as e:
+    print_red(e)
     return 1
   try:
     description = driver.find_element(By.XPATH, "//div[contains(@class, 'remarks')]/p/span").text
-  except:
+  except Exception as e:
+    print_red(e)
     description = "Couldn't locate on Redfin"
   try:
     agent_name = driver.find_element(By.XPATH, "//span[contains(text(), 'Listed by')]/span[1]").text
     agent_dre = driver.find_element(By.XPATH, "//span[contains(text(), 'Listed by')]/span[2]").text
     agent_broker = driver.find_element(By.XPATH, "//span[contains(text(), 'Listed by')]/span[3]").text
     agent_info = f"Listed by {agent_name} {agent_dre} {agent_broker}"
-  except:
+  except Exception as e:
+    print_red(e)
     agent_info = ""
   try:
     ask_price = driver.find_element(By.XPATH, "//div[contains(@class, 'statsValue')]").text
-  except:
+  except Exception as e:
+    print_red(e)
     ask_price = "Couldn't find Ask Price on Redfin"
   try:
     days_on_market = "Time on Redfin: " + driver.find_element(By.XPATH, "//span[contains(text(), 'Time on Redfin')]/ancestor::span[contains(@class,'header')]/following-sibling::span").text
-  except:
+  except Exception as e:
+    print_red(e)
     days_on_market = "Time on Redfin: Could not find Time on Redfin"
   pictures = driver.current_url
   return {
