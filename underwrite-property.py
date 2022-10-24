@@ -143,11 +143,10 @@ def get_info_from_compass(property_address):
   except TimeoutException:
     return 1
   try:
-    description_xpath = "//div[contains(@class, 'textIntent-body')]/div/span"
-    description = driver.find_element(By.XPATH, description_xpath).text
+    remarks = driver.find_element(By.XPATH, "//div[contains(@class, 'textIntent-body')]/div/span").text
   except Exception as e:
     print_red(e)
-    description = "Couldn't locate on Compass"
+    remarks = "Couldn't locate on Compass"
   try:
     agent_info_1 = driver.find_element(By.XPATH, "//div[contains(text(), 'Listed by')]").text
     try:
@@ -177,7 +176,7 @@ def get_info_from_compass(property_address):
       pool_type = "Didn't find on Compass"
   return {
     "mls_number": mls_number,
-    "description": description,
+    "remarks": remarks,
     "agent_info": agent_info,
     "ask_price": ask_price,
     "days_on_market": days_on_market,
@@ -202,10 +201,10 @@ def get_info_from_redfin(property_address):
     print_red(e)
     return 1
   try:
-    description = driver.find_element(By.XPATH, "//div[contains(@class, 'remarks')]/p/span").text
+    remarks = driver.find_element(By.XPATH, "//div[contains(@class, 'remarks')]/p/span").text
   except Exception as e:
     print_red(e)
-    description = "Couldn't locate on Redfin"
+    remarks = "Couldn't locate on Redfin"
   try:
     agent_name = driver.find_element(By.XPATH, "//span[contains(text(), 'Listed by')]/span[1]").text
     agent_dre = driver.find_element(By.XPATH, "//span[contains(text(), 'Listed by')]/span[2]").text
@@ -227,7 +226,7 @@ def get_info_from_redfin(property_address):
   pictures = driver.current_url
   return {
     "mls_number": mls_number,
-    "description": description,
+    "remarks": remarks,
     "agent_info": agent_info,
     "ask_price": ask_price,
     "days_on_market": days_on_market,
@@ -255,7 +254,7 @@ def main():
   if listing_info == 1:
     listing_info = {
       "mls_number": "Couldn't find on Compass or Redfin",
-      "description": "Couldn't find on Compass or Redfin",
+      "remarks": "Couldn't find on Compass or Redfin",
       "agent_info": "Listed by: Couldn't find on Compass or Redfin",
       "ask_price": "Couldn't find on Compass or Redfin",
       "days_on_market": "DOM: Couldn't find on Compass or Redfin",
@@ -271,8 +270,8 @@ def main():
   notes += f"-Est. Mortgage: {propstream_info['mortgage']}\n"
   notes += f"-Pool: {listing_info['pool_status']}\n"
   notes += f"Pictures: {listing_info['pictures']}\n"
-  notes += "Description (Only Include Important Information):\n"
-  notes += f"{listing_info['description']}\n\n"
+  notes += "Listing Remarks:\n"
+  notes += f"{listing_info['remarks']}\n\n"
 
   notes += f"*ORIGINAL {CURRENT_DATE}*\n"
   notes += f"Asking Price {listing_info['ask_price']}\n"
