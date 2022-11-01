@@ -1,6 +1,7 @@
 import datetime
-#from dateutil.relativedelta import relativedelta
 import json
+from decimal import Decimal
+from re import sub
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
 from selenium.common.exceptions import TimeoutException
@@ -34,6 +35,7 @@ PROPERTY_ADDRESS = cfg["targets"]["property_address"]
 IS_CONDO = cfg["targets"]["condo"]
 PROPSTREAM_EMAIL = cfg["propstream"]["email"]
 PROPSTREAM_PASSWORD = cfg["propstream"]["password"]
+PROPSTREAM_ZOOM = cfg["propstream"]["zoom"]
 COMPASS_EMAIL = cfg["compass"]["email"]
 COMPASS_PASSWORD = cfg["compass"]["password"]
 DEFAULT_TIMEOUT = cfg["timeouts"]["default"]
@@ -76,11 +78,13 @@ def get_info_from_propstream(property_address):
   WebDriverWait(driver, DEFAULT_TIMEOUT).until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[placeholder='Enter County, City, Zip Code(s) or APN #']")))
   driver.find_element(By.CSS_SELECTOR, "input[placeholder='Enter County, City, Zip Code(s) or APN #']").send_keys(property_address)
   
-  if not IS_CONDO:
+  try:
     # Click Details button
     details = WebDriverWait(driver, SEARCH_TIMEOUT).until(EC.presence_of_element_located((By.XPATH, "//span[text()='Details']")))
     actions.move_to_element(details).perform()
     details.click()
+  except TimeoutException:
+    pass
 
   # Grab owner and mortgage info
   WebDriverWait(driver, SEARCH_TIMEOUT).until(EC.presence_of_element_located((By.XPATH, "//div[text()='Owner 1 Name']/following-sibling::div")))
@@ -101,6 +105,11 @@ def get_info_from_propstream(property_address):
   if (square_footage.text):
     square_footage = int(square_footage.text.replace(",", ""))
 
+  # Grab year built
+  year_built = driver.find_element(By.XPATH, "//div[contains(text(),'Year Built')]/following-sibling::div")
+  if (year_built.text):
+    year_built = int(year_built.text.replace(",", ""))
+
   # Filter by public record
   public_record = driver.find_element(By.XPATH, "//span[text()='Public Record']/preceding-sibling::input")
   driver.execute_script("arguments[0].click()", public_record)
@@ -110,11 +119,23 @@ def get_info_from_propstream(property_address):
   #three_months_ago = (datetime.today() - relativedelta(months=3)).replace(day=1).strftime("%m/%d/%Y")
   #sale_date_min.clear()
   #sale_date_min.send_keys(three_months_ago)
+  
+  # Grab all comps and take the average
+  # #e4f3e6 is the light green that indicates public record
+  sale_prices = driver.find_elements(By.XPATH, "//div[contains(@style, '#e4f3e6')]/div[@col-id='saleAmount']")
+  avg_price = 0
+  for price_obj in sale_prices:
+    price = Decimal(sub(r"[^\d.]", "", price_obj.text))
+    avg_price += price
+  if len(sale_prices):
+    avg_price /= len(sale_prices)
 
   return {
     "owner": owner,
     "mortgage": mortgage,
-    "square_footage": square_footage
+    "square_footage": square_footage,
+    "year_built": year_built,
+    "average_sale_price": avg_price
   }
 
 def sign_into_compass(email, password):
@@ -150,41 +171,61 @@ def get_info_from_compass(property_address):
       remarks = driver.find_element(By.XPATH, "//div[contains(@class, 'textIntent-body')]/div/span").text
   except Exception as e:
     print_red(e)
-    remarks = "Couldn't locate on Compass"
+    remarks = "Didn't find on Compass"
+
+  # Get Listing Agent Info
   try:
-    agent_info_1 = driver.find_element(By.XPATH, "//div[contains(text(), 'Listed by')]").text
-    try:
-      agent_info_2 = "\n-" + driver.find_element(By.XPATH, "//div[contains(text(), 'Listed by')]/following-sibling::div").text
-    except Exception as e:
-      print_red(e)
-      agent_info_2 = ""
-    agent_info = agent_info_1 + agent_info_2
-  except Exception as e:
-    print_red(e)
-    agent_info = ""
+    listing_agent_xpath = "//div[contains(@class, 'contact-agent')]/p[1]"
+    listing_agent = driver.find_element(By.XPATH, listing_agent_xpath).text
+  except:
+    listing_agent = "Didn't find on Compass"
+  try:
+    listing_brokerage_xpath = "//div[contains(@class, 'contact-agent')]/p[2]"
+    listing_brokerage = driver.find_element(By.XPATH, listing_brokerage_xpath).text
+  except:
+    listing_brokerage = "Didn't find on Compass"
+  try:
+    listing_agent_dre_xpath = "//div[contains(@class, 'contact-agent')]/p[contains(text(), 'DRE #')]"
+    listing_agent_dre = driver.find_element(By.XPATH, listing_agent_dre_xpath).text
+    listing_agent_dre = listing_agent_dre.replace("DRE #", "")
+  except:
+    listing_agent_dre = "Didn't find on Compass"
+  try:
+    listing_agent_phone_xpath = "//div[contains(@class, 'contact-agent')]/div/p[contains(text(), 'P:')]"
+    listing_agent_phone = driver.find_element(By.XPATH, listing_agent_phone_xpath).text
+  except:
+    listing_agent_phone = "Didn't find on Compass"
+  try:
+    listing_agent_email_xpath = "//div[contains(@class, 'contact-agent')]/a[contains(@href, 'mailto')]"
+    listing_agent_email = driver.find_element(By.XPATH, listing_agent_email_xpath).text
+  except:
+    listing_agent_email = "Didn't find on Compass"
+  
+  # Get Ask Price
   try:
     ask_price = driver.find_element(By.XPATH, "//div[text()='Price']//preceding-sibling::div").text
   except Exception as e:
     print_red(e)
-    ask_price = "N/A"
+    ask_price = "Didn't find on Compass"
   try:
     days_on_market = "Days on Compass: " + driver.find_element(By.XPATH, "//th[text()='Days on Compass']/following-sibling::td").text
   except NoSuchElementException:
     days_on_market = "Days on Compass: N/A"
   try:
-    pool_type = driver.find_element(By.XPATH, "//div[contains(text(), 'Pool Type: ')]/span").text
+    pool = driver.find_element(By.XPATH, "//div[contains(text(), 'Pool')]/span").text
   except NoSuchElementException:
-    try:
-      pool_type = driver.find_element(By.XPATH, "//span[contains(text(), 'Private Pool')]/following-sibling::div").text
-    except NoSuchElementException:
-      pool_type = "Didn't find on Compass"
+    pool = "Didn't find on Compass"
   return {
     "mls_number": mls_number,
     "remarks": remarks,
-    "agent_info": agent_info,
+    "listing_agent": listing_agent,
+    "listing_brokerage": listing_brokerage,
+    "listing_agent_dre": listing_agent_dre,
+    "listing_agent_phone": listing_agent_phone,
+    "listing_agent_email": listing_agent_email,
     "ask_price": ask_price,
     "days_on_market": days_on_market,
-    "pool_status": pool_type,
+    "pool": pool,
     "pictures": driver.current_url
   }
 
@@ -209,21 +250,32 @@ def get_info_from_redfin(property_address):
   except Exception as e:
     print_red(e)
     remarks = "Couldn't locate on Redfin"
+  
+  # Get Listing Agent Info
   try:
-    agent_name = driver.find_element(By.XPATH, "//span[contains(text(), 'Listed by')]/span[1]").text
-    agent_dre = driver.find_element(By.XPATH, "//span[contains(text(), 'Listed by')]/span[2]").text
-    agent_broker = driver.find_element(By.XPATH, "//span[contains(text(), 'Listed by')]/span[3]").text
-    agent_info = f"Listed by {agent_name} {agent_dre} {agent_broker}"
-  except Exception as e:
-    print_red(e)
-    agent_info = ""
+    listing_agent = driver.find_element(By.XPATH, "//span[contains(text(), 'Listed by')]/span[1]").text
+  except:
+    listing_agent = "Didn't find on Redfin"
+  try:
+    listing_brokerage = driver.find_element(By.XPATH, "//span[contains(text(), 'Listed by')]/span[3]").text
+  except:
+    listing_brokerage = "Didn't find on Redfin"
+  try:
+    listing_agent_dre = driver.find_element(By.XPATH, "//span[contains(text(), 'Listed by')]/span[2]").text
+  except:
+    listing_agent_dre = "Didn't find on Redfin"
+
+  # Get Ask Price
   try:
     ask_price = driver.find_element(By.XPATH, "//div[contains(@class, 'statsValue')]").text
   except Exception as e:
     print_red(e)
-    ask_price = "Couldn't find Ask Price on Redfin"
+    ask_price = "Didn't find on Redfin"
+  
+  # Get Time on Redfin
   try:
-    days_on_market = "Time on Redfin: " + driver.find_element(By.XPATH, "//span[contains(text(), 'Time on Redfin')]/ancestor::span[contains(@class,'header')]/following-sibling::span").text
+    days_on_market_xpath = "//span[contains(text(), 'Time on Redfin')]/ancestor::span[contains(@class,'header')]/following-sibling::span"
+    days_on_market = "Time on Redfin: " + driver.find_element(By.XPATH, days_on_market_xpath).text
   except Exception as e:
     print_red(e)
     days_on_market = "Time on Redfin: Could not find Time on Redfin"
@@ -231,10 +283,14 @@ def get_info_from_redfin(property_address):
   return {
     "mls_number": mls_number,
     "remarks": remarks,
-    "agent_info": agent_info,
+    "listing_agent": listing_agent,
+    "listing_brokerage": listing_brokerage,
+    "listing_agent_dre": listing_agent_dre,
+    "listing_agent_phone": "Didn't find on Redfin",
+    "listing_agent_email": "Didn't find on Redfin",
     "ask_price": ask_price,
     "days_on_market": days_on_market,
-    "pool_status": "Redfin doesn't list pool status",
+    "pool": "Redfin doesn't list pool status",
     "pictures": pictures
   }
 
@@ -248,6 +304,8 @@ def main():
   driver.get("https://login.propstream.com/")
   sign_into_propstream(PROPSTREAM_EMAIL, PROPSTREAM_PASSWORD)
   propstream_info = get_info_from_propstream(PROPERTY_ADDRESS)
+  if (PROPSTREAM_ZOOM):
+    driver.execute_script(f"document.body.style.zoom='{PROPSTREAM_ZOOM}%'")
 
   driver.execute_script("window.open('https://www.compass.com/');")
   switch_to_recently_opened_tab()
@@ -259,23 +317,38 @@ def main():
     listing_info = {
       "mls_number": "Couldn't find on Compass or Redfin",
       "remarks": "Couldn't find on Compass or Redfin",
-      "agent_info": "Listed by: Couldn't find on Compass or Redfin",
+      "listing_agent": "Couldn't find on Compass or Redfin",
+      "listing_brokerage": "Couldn't find on Compass or Redfin",
+      "listing_agent_dre": "Couldn't find on Compass or Redfin",
+      "listing_agent_phone": "Couldn't find on Compass or Redfin",
+      "listing_agent_email": "Couldn't find on Compass or Redfin",
       "ask_price": "Couldn't find on Compass or Redfin",
       "days_on_market": "DOM: Couldn't find on Compass or Redfin",
-      "pool_status": "Couldn't find on Compass or Redfin",
+      "pool": "Couldn't find on Compass or Redfin",
       "pictures": "Couldn't find on Compass or Redfin"
     }
 
   notes = PROPERTY_ADDRESS + "\n"
   notes += f"-MLS #: {listing_info['mls_number']}\n"
   notes += f"-{listing_info['days_on_market']} as of {CURRENT_DATE}\n"
-  notes += f"-{listing_info['agent_info']}\n"
+  notes += f"-Listing Agent: {listing_info['listing_agent']}\n"
+  notes += f"-Brokerage: {listing_info['listing_brokerage']}\n"
+  notes += f"-DRE #: {listing_info['listing_agent_dre']}\n"
+  notes += f"-Agent's Phone: {listing_info['listing_agent_phone']}\n"
+  notes += f"-Agent's Email: {listing_info['listing_agent_email']}\n"
   notes += f"-Owner: {propstream_info['owner']}\n"
   notes += f"-Est. Mortgage: {propstream_info['mortgage']}\n"
-  notes += f"-Pool: {listing_info['pool_status']}\n"
+  notes += f"-Year Built: {propstream_info['year_built']}\n"
+  notes += f"-Pool: {listing_info['pool']}\n"
   notes += f"Pictures: {listing_info['pictures']}\n"
   notes += "Listing Remarks:\n"
   notes += f"\"{listing_info['remarks']}\"\n\n"
+
+  avg_price = "${:,.2f}".format(propstream_info['average_sale_price'])
+  avg_price_multiply = "${:,.2f}".format(propstream_info['average_sale_price'] * Decimal('0.6'))
+  notes += "Quick Check:\n"
+  notes += f"-Average Market Sale Price: {avg_price}\n"
+  notes += f"-Price * 60%: {avg_price_multiply}\n\n"
 
   notes += f"*ORIGINAL {CURRENT_DATE}*\n"
   notes += f"Asking Price {listing_info['ask_price']}\n"

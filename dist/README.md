@@ -7,6 +7,7 @@ Change config.json to input settings into bot.
 property_address: This is the property address to underwrite.
 propstream->email: This is the email to input into PropStream.
 propstream->password: This is the password to input into PropStream. This can be left blank, but if filled out, user will be automatically be logged in.
+propstream->zoom: Some users may experience PropStream too zoomed in. This configuration will allow users to adjust their zoom to their liking.
 compass->email: This is the email to input into compass.com.
 compass->password: This is the password to input into compass.com. This can be left blank, but if filled out, user will be automatically be logged in.
 timeouts->default: This is the default timeout used to adjust for simple lags, transitions, and delays. Default is 10 seconds. Increase value if experiencing network latency.

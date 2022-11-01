@@ -5,7 +5,8 @@
   },
   "propstream": {
     "email": "",
-    "password": ""
+    "password": "",
+    "zoom": 100
   },
   "compass": {
     "email": "",
