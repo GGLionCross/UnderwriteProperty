@@ -62,9 +62,9 @@ def sevenzip(filename, zipname):
 sevenzip(f"{SPECPATH}\\dist\\*", outfile_name)
 
 # Copies all files in distribution to untracked folder for personal usage
-UNTRACKED = f"{SPECPATH}\\..\\Untracked Files\\UnderwriteProperty"
-shutil.copytree(DISTPATH, UNTRACKED, dirs_exist_ok=True)
+IGNORE = f"{SPECPATH}\\.ignore"
+shutil.copytree(DISTPATH, IGNORE, dirs_exist_ok=True)
 
-# Overwrite Untracked Files\config.json with Untracked Files\keep-config.json
+# Overwrite .ignore\config.json with .ignore\keep-config.json
 # This is so I don't have to keep updating my creds in config.json
-shutil.copyfile('{0}/keep-config.json'.format(UNTRACKED), '{0}/config.json'.format(UNTRACKED))
+shutil.copyfile('{0}/keep-config.json'.format(IGNORE), '{0}/config.json'.format(IGNORE))
