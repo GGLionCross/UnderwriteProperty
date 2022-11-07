@@ -1,7 +1,6 @@
 {
   "targets": {
-    "property_address": "",
-    "condo": false
+    "property_address": ""
   },
   "propstream": {
     "email": "",

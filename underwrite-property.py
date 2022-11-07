@@ -12,295 +12,346 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from webdriver_manager.chrome import ChromeDriverManager
 
-def print_cyan(text):
-  print("\033[96m {}\033[00m" .format(text))
+COLORS = {
+  "white": '\033[0m', # default,
+  "red": '\033[31m',
+  "green": '\033[32m',
+  "yellow": '\033[33m',
+  "blue": '\033[34m',
+  "magenta": '\033[35m',
+  "cyan": '\033[36m'
+}
 
-def print_green(text):
-  print("\033[92m {}\033[00m" .format(text))
-
-def print_red(text):
-  print("\033[91m {}\033[00m".format(text))
-
-def print_purple(text):
-  print("\033[94m {}\033[00m" .format(text))
-
-def print_yellow(text):
-  print("\033[93m {}\033[00m" .format(text))
-
-with open("config.json", "r") as f:
-  cfg = json.load(f)
-
-CURRENT_DATE = datetime.date.today().strftime('%m/%d/%y')  
-PROPERTY_ADDRESS = cfg["targets"]["property_address"]
-IS_CONDO = cfg["targets"]["condo"]
-PROPSTREAM_EMAIL = cfg["propstream"]["email"]
-PROPSTREAM_PASSWORD = cfg["propstream"]["password"]
-PROPSTREAM_ZOOM = cfg["propstream"]["zoom"]
-COMPASS_EMAIL = cfg["compass"]["email"]
-COMPASS_PASSWORD = cfg["compass"]["password"]
-DEFAULT_TIMEOUT = cfg["timeouts"]["default"]
-LOGIN_TIMEOUT = cfg["timeouts"]["login"]
-SEARCH_TIMEOUT = cfg["timeouts"]["search"]
-URL_REDFIN = "https://www.redfin.com/"
-
-def initialize_chrome_options():
-  # Initialize special chrome options for selenium to utilize
-  chrome_options = webdriver.ChromeOptions()
-  chrome_options.add_experimental_option("detach", True) # Keep browser open after completion
-  chrome_options.add_argument("--start-maximized")
-  chrome_options.add_argument("--disable-notifications")
-  chrome_options.add_argument("--disable-site-isolation-trials")
-  return chrome_options
-
-def initialize_chrome_webdriver(chrome_options):
-  return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
-
-chrome_options = initialize_chrome_options()
-driver = initialize_chrome_webdriver(chrome_options)
-actions = ActionChains(driver)
-
-def switch_to_recently_opened_tab():
-  driver.switch_to.window(driver.window_handles[len(driver.window_handles) - 1])
-
-def sign_into_propstream(email, password):
-  # Autofill email and password fields.
-  WebDriverWait(driver, DEFAULT_TIMEOUT).until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[name='username']")))
-  if (email):
-    driver.find_element(By.CSS_SELECTOR, "input[name='username']").send_keys(email)
-  if (password):
-    driver.find_element(By.CSS_SELECTOR, "input[name='password']").send_keys(password)
-    driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
-  # Wait until property address field after login is clickable
-  WebDriverWait(driver, LOGIN_TIMEOUT).until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[placeholder='Enter County, City, Zip Code(s) or APN #']")))
-
-def get_info_from_propstream(property_address):
-  # Once in PropStream, look up property address and grab all important information
-  WebDriverWait(driver, DEFAULT_TIMEOUT).until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[placeholder='Enter County, City, Zip Code(s) or APN #']")))
-  driver.find_element(By.CSS_SELECTOR, "input[placeholder='Enter County, City, Zip Code(s) or APN #']").send_keys(property_address)
-  
-  try:
-    # Click Details button
-    details = WebDriverWait(driver, SEARCH_TIMEOUT).until(EC.presence_of_element_located((By.XPATH, "//span[text()='Details']")))
-    actions.move_to_element(details).perform()
-    details.click()
-  except TimeoutException:
-    pass
-
-  # Grab owner and mortgage info
-  WebDriverWait(driver, SEARCH_TIMEOUT).until(EC.presence_of_element_located((By.XPATH, "//div[text()='Owner 1 Name']/following-sibling::div")))
-  owner = driver.find_element(By.XPATH, "//div[text()='Owner 1 Name']/following-sibling::div").text
-  mortgage = driver.find_element(By.XPATH, "//div[text()='Est. Mortgage Balance']/preceding-sibling::div").text
-  driver.find_element(By.XPATH, "//div[text()='Comparables & Nearby Listings']").click()
-
-  # Filter by year built
-  year_built = WebDriverWait(driver, DEFAULT_TIMEOUT).until(EC.presence_of_element_located((By.XPATH, "//div[contains(text(),'Year Built')]/following-sibling::div")))
-  actions.move_to_element(year_built).perform()
-  if (year_built.text):
-    year_built = int(year_built.text)
-    driver.find_element(By.CSS_SELECTOR, "input[name='yearBuiltMin']").send_keys(year_built - 10)
-    driver.find_element(By.CSS_SELECTOR, "input[name='yearBuiltMax']").send_keys(year_built + 10)
-
-  # Grab square footage
-  square_footage = driver.find_element(By.XPATH, "//div[contains(text(),'SqFt')]/following-sibling::div")
-  if (square_footage.text):
-    square_footage = int(square_footage.text.replace(",", ""))
-
-  # Grab year built
-  year_built = driver.find_element(By.XPATH, "//div[contains(text(),'Year Built')]/following-sibling::div")
-  if (year_built.text):
-    year_built = int(year_built.text.replace(",", ""))
-
-  # Filter by public record
-  public_record = driver.find_element(By.XPATH, "//span[text()='Public Record']/preceding-sibling::input")
-  driver.execute_script("arguments[0].click()", public_record)
-
-  # Setting Sale Date Min doesn't work because date picker is finicky
-  #sale_date_min = driver.find_element(By.CSS_SELECTOR, "input[name='saleDateMin']")
-  #three_months_ago = (datetime.today() - relativedelta(months=3)).replace(day=1).strftime("%m/%d/%Y")
-  #sale_date_min.clear()
-  #sale_date_min.send_keys(three_months_ago)
-  
-  # Grab all comps and take the average
-  # #e4f3e6 is the light green that indicates public record
-  sale_prices = driver.find_elements(By.XPATH, "//div[contains(@style, '#e4f3e6')]/div[@col-id='saleAmount']")
-  avg_price = 0
-  for price_obj in sale_prices:
-    price = Decimal(sub(r"[^\d.]", "", price_obj.text))
-    avg_price += price
-  if len(sale_prices):
-    avg_price /= len(sale_prices)
-
-  return {
-    "owner": owner,
-    "mortgage": mortgage,
-    "square_footage": square_footage,
-    "year_built": year_built,
-    "average_sale_price": avg_price
-  }
-
-def sign_into_compass(email, password):
-  log_in = WebDriverWait(driver, SEARCH_TIMEOUT).until(EC.presence_of_element_located((By.CSS_SELECTOR, "button[data-label='Log In']")))
-  log_in.click()
-  driver.implicitly_wait(DEFAULT_TIMEOUT)
-  driver.find_element(By.CSS_SELECTOR, ".uc-authentication button:nth-child(5)").click()
-  if email:
-    driver.find_element(By.CSS_SELECTOR, "input[name='email']").send_keys(email)
-    driver.find_element(By.ID, "continue").click()
-    if password:
-      driver.find_element(By.CSS_SELECTOR, "input[name='password']").send_keys(password)
-      driver.find_element(By.ID, "continue").click()
-  
-  # Wait for user to log into compass.com
-  # Wait for "Forgot Password" button to disappear
-  forgot_password = driver.find_element(By.CSS_SELECTOR, ".uc-authentication-footer button")
-  WebDriverWait(driver, LOGIN_TIMEOUT).until(EC.staleness_of(forgot_password))
-
-def get_info_from_compass(property_address):
-  search = WebDriverWait(driver, SEARCH_TIMEOUT).until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[aria-describedBy='location-lookup-input-description']")))
-  search.click()
-  search.send_keys(property_address)
-  try:
-    mls_number = WebDriverWait(driver, SEARCH_TIMEOUT).until(EC.presence_of_element_located((By.XPATH, "//th[text()='MLS #']/following-sibling::td"))).text
-  except TimeoutException:
-    return 1
-  try:
-    try:
-      remarks = driver.find_element(By.XPATH, "//div[contains(@class, 'textIntent-body')]/div/span[2]").get_attribute("textContent")
-    except Exception as e:
-      print_red(e)
-      remarks = driver.find_element(By.XPATH, "//div[contains(@class, 'textIntent-body')]/div/span").text
-  except Exception as e:
-    print_red(e)
-    remarks = "Didn't find on Compass"
-
-  # Get Listing Agent Info
-  try:
-    listing_agent_xpath = "//div[contains(@class, 'contact-agent')]/p[1]"
-    listing_agent = driver.find_element(By.XPATH, listing_agent_xpath).text
-  except:
-    listing_agent = "Didn't find on Compass"
-  try:
-    listing_brokerage_xpath = "//div[contains(@class, 'contact-agent')]/p[2]"
-    listing_brokerage = driver.find_element(By.XPATH, listing_brokerage_xpath).text
-  except:
-    listing_brokerage = "Didn't find on Compass"
-  try:
-    listing_agent_dre_xpath = "//div[contains(@class, 'contact-agent')]/p[contains(text(), 'DRE #')]"
-    listing_agent_dre = driver.find_element(By.XPATH, listing_agent_dre_xpath).text
-    listing_agent_dre = listing_agent_dre.replace("DRE #", "")
-  except:
-    listing_agent_dre = "Didn't find on Compass"
-  try:
-    listing_agent_phone_xpath = "//div[contains(@class, 'contact-agent')]/div/p[contains(text(), 'P:')]"
-    listing_agent_phone = driver.find_element(By.XPATH, listing_agent_phone_xpath).text
-  except:
-    listing_agent_phone = "Didn't find on Compass"
-  try:
-    listing_agent_email_xpath = "//div[contains(@class, 'contact-agent')]/a[contains(@href, 'mailto')]"
-    listing_agent_email = driver.find_element(By.XPATH, listing_agent_email_xpath).text
-  except:
-    listing_agent_email = "Didn't find on Compass"
-  
-  # Get Ask Price
-  try:
-    ask_price = driver.find_element(By.XPATH, "//div[text()='Price']//preceding-sibling::div").text
-  except Exception as e:
-    print_red(e)
-    ask_price = "Didn't find on Compass"
-  try:
-    days_on_market = "Days on Compass: " + driver.find_element(By.XPATH, "//th[text()='Days on Compass']/following-sibling::td").text
-  except NoSuchElementException:
-    days_on_market = "Days on Compass: N/A"
-  try:
-    pool = driver.find_element(By.XPATH, "//div[contains(text(), 'Pool')]/span").text
-  except NoSuchElementException:
-    pool = "Didn't find on Compass"
-  return {
-    "mls_number": mls_number,
-    "remarks": remarks,
-    "listing_agent": listing_agent,
-    "listing_brokerage": listing_brokerage,
-    "listing_agent_dre": listing_agent_dre,
-    "listing_agent_phone": listing_agent_phone,
-    "listing_agent_email": listing_agent_email,
-    "ask_price": ask_price,
-    "days_on_market": days_on_market,
-    "pool": pool,
-    "pictures": driver.current_url
-  }
-
-def get_info_from_redfin(property_address):
-  driver.get("https://www.google.com/")
-  search = driver.find_element(By.CSS_SELECTOR, "input[title='Search']")
-  search.send_keys(f"redfin {property_address}")
-  driver.find_element(By.CSS_SELECTOR, "input[value='Google Search']").submit()
-  try:
-    redfin_link = driver.find_element(By.CSS_SELECTOR, f"a[href*='{URL_REDFIN}']")
-    redfin_link.click()
-  except Exception as e:
-    print_red(e)
-    return 1
-  try:
-    mls_number = WebDriverWait(driver, DEFAULT_TIMEOUT).until(EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'sourceContent')]/span[2]"))).text
-  except Exception as e:
-    print_red(e)
-    return 1
-  try:
-    remarks = driver.find_element(By.XPATH, "//div[contains(@class, 'remarks')]/p/span").text
-  except Exception as e:
-    print_red(e)
-    remarks = "Couldn't locate on Redfin"
-  
-  # Get Listing Agent Info
-  try:
-    listing_agent = driver.find_element(By.XPATH, "//span[contains(text(), 'Listed by')]/span[1]").text
-  except:
-    listing_agent = "Didn't find on Redfin"
-  try:
-    listing_brokerage = driver.find_element(By.XPATH, "//span[contains(text(), 'Listed by')]/span[3]").text
-  except:
-    listing_brokerage = "Didn't find on Redfin"
-  try:
-    listing_agent_dre = driver.find_element(By.XPATH, "//span[contains(text(), 'Listed by')]/span[2]").text
-  except:
-    listing_agent_dre = "Didn't find on Redfin"
-
-  # Get Ask Price
-  try:
-    ask_price = driver.find_element(By.XPATH, "//div[contains(@class, 'statsValue')]").text
-  except Exception as e:
-    print_red(e)
-    ask_price = "Didn't find on Redfin"
-  
-  # Get Time on Redfin
-  try:
-    days_on_market_xpath = "//span[contains(text(), 'Time on Redfin')]/ancestor::span[contains(@class,'header')]/following-sibling::span"
-    days_on_market = "Time on Redfin: " + driver.find_element(By.XPATH, days_on_market_xpath).text
-  except Exception as e:
-    print_red(e)
-    days_on_market = "Time on Redfin: Could not find Time on Redfin"
-  pictures = driver.current_url
-  return {
-    "mls_number": mls_number,
-    "remarks": remarks,
-    "listing_agent": listing_agent,
-    "listing_brokerage": listing_brokerage,
-    "listing_agent_dre": listing_agent_dre,
-    "listing_agent_phone": "Didn't find on Redfin",
-    "listing_agent_email": "Didn't find on Redfin",
-    "ask_price": ask_price,
-    "days_on_market": days_on_market,
-    "pool": "Redfin doesn't list pool status",
-    "pictures": pictures
-  }
-
-def send_text_to_word_counter(text):
-  driver.execute_script("window.open('https://wordcounter.net/');")
-  recently_opened_tab = driver.window_handles[len(driver.window_handles) - 1]
-  driver.switch_to.window(recently_opened_tab)
-  driver.find_element(By.TAG_NAME, "textarea").send_keys(text)
+def cprint(color, text):
+  print(f"{COLORS[color]}{text}{COLORS['white']}")
 
 def main():
+  cprint("cyan", "Running UnderwriteProperty...")
+  def get_config():
+    cprint("cyan", "Reading config.json...")
+    with open("config.json", "r") as file:
+      return json.load(file)
+  # end of get_config
+
+  def initialize_chrome_options():
+    # Initialize special chrome options for selenium to utilize
+    chrome_options = webdriver.ChromeOptions()
+    chrome_options.add_experimental_option("detach", True) # Keep browser open after completion
+    chrome_options.add_argument("--start-maximized")
+    chrome_options.add_argument("--disable-notifications")
+    chrome_options.add_argument("--disable-site-isolation-trials")
+    return chrome_options
+  # end of initialize_chrome_options
+
+  def initialize_chrome_webdriver(chrome_options):
+    return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+  # end of initialize_chrome_webdriver
+
+  config = get_config()
+
+  #region Constants
+  CURRENT_DATE = datetime.date.today().strftime('%m/%d/%y')  
+  PROPERTY_ADDRESS = config["targets"]["property_address"]
+  PROPSTREAM_EMAIL = config["propstream"]["email"]
+  PROPSTREAM_PASSWORD = config["propstream"]["password"]
+  PROPSTREAM_ZOOM = config["propstream"]["zoom"]
+  COMPASS_EMAIL = config["compass"]["email"]
+  COMPASS_PASSWORD = config["compass"]["password"]
+  DEFAULT_TIMEOUT = config["timeouts"]["default"]
+  LOGIN_TIMEOUT = config["timeouts"]["login"]
+  SEARCH_TIMEOUT = config["timeouts"]["search"]
+  URL_REDFIN = "https://www.redfin.com/"
+  #endregion Constants
+
+  chrome_options = initialize_chrome_options()
+  driver = initialize_chrome_webdriver(chrome_options)
+  actions = ActionChains(driver)
+
+  #region Wait Functions
+  def wait_until_clickable(element, timeout=DEFAULT_TIMEOUT):
+      return (WebDriverWait(driver, timeout).until(
+        EC.element_to_be_clickable(element)))
+
+  def wait_for_element_located(element, timeout=DEFAULT_TIMEOUT):
+    return (WebDriverWait(driver, timeout).until(
+      EC.presence_of_element_located(element)))
+  #endregion Wait Functions
+
+  def switch_to_recently_opened_tab():
+    driver.switch_to.window(driver.window_handles[len(driver.window_handles) - 1])
+  # end of switch_to_recently_opened_tab
+
+  def sign_into_propstream(email, password):
+    # Autofill email and password fields.
+    wait_until_clickable((By.CSS_SELECTOR, "input[name='username']"))
+    if (email):
+      input_email_css = "input[name='username']"
+      input_email = driver.find_element(By.CSS_SELECTOR, input_email_css)
+      input_email.send_keys(email)
+    if (password):
+      input_password_css = "input[name='password']"
+      input_password = driver.find_element(By.CSS_SELECTOR, input_password_css)
+      input_password.send_keys(password)
+      submit_css = "button[type='submit']"
+      submit = driver.find_element(By.CSS_SELECTOR, submit_css)
+      submit.click()
+    # Wait until property address field after login is clickable
+    input_css = "input[placeholder='Enter County, City, Zip Code(s) or APN #']"
+    wait_for_element_located((By.CSS_SELECTOR, input_css), LOGIN_TIMEOUT)
+  # end of sign_into_propstream
+
+  def get_info_from_propstream(property_address):
+    # Once in PropStream, look up property address and grab all important information
+    # Search address
+    input_placeholder = "Enter County, City, Zip Code(s) or APN #"
+    input_xpath = f"//input[@placeholder='{input_placeholder}']"
+    input = wait_until_clickable((By.XPATH, input_xpath))
+    input.send_keys(property_address)
+    
+    try:
+      # Click Details button
+      details_xpath = "//span[text()='Details']"
+      details = wait_for_element_located((By.XPATH, details_xpath), SEARCH_TIMEOUT)
+      actions.move_to_element(details).perform()
+      details.click()
+    except TimeoutException:
+      pass
+
+    # Grab owner and mortgage info
+    owner_xpath = "//div[text()='Owner 1 Name']/following-sibling::div"
+    owner = wait_for_element_located((By.XPATH, owner_xpath), SEARCH_TIMEOUT)
+    owner = owner.text
+    mortgage_xpath = "//div[text()='Est. Mortgage Balance']/preceding-sibling::div"
+    mortgage = driver.find_element(By.XPATH, mortgage_xpath).text
+    comps_tab_xpath = "//div[text()='Comparables & Nearby Listings']"
+    comps_tab = driver.find_element(By.XPATH, comps_tab_xpath)
+    comps_tab.click()
+
+    # Grab Distressed Condition
+    # We don't want to waste our time with bank-owned properties.
+    distressed_xpath = "//div[contains(text(),'Distressed')]/following-sibling::div"
+    distressed = driver.find_element(By.XPATH, distressed_xpath).text
+
+    # Filter by year built
+    year_built_xpath = "//div[contains(text(),'Year Built')]/following-sibling::div"
+    year_built = wait_for_element_located((By.XPATH, year_built_xpath))
+    actions.move_to_element(year_built).perform()
+    if (year_built.text):
+      year_built = int(year_built.text)
+      input_min_xpath = "//input[@name='yearBuiltMin']"
+      input_min = driver.find_element(By.XPATH, input_min_xpath)
+      input_min.send_keys(year_built - 10)
+      input_max_xpath = "//input[@name='yearBuiltMax']"
+      input_max = driver.find_element(By.XPATH, input_max_xpath)
+      input_max.send_keys(year_built + 10)
+
+    # Grab square footage
+    sqft_xpath = "//div[contains(text(),'SqFt')]/following-sibling::div"
+    square_footage = driver.find_element(By.XPATH, sqft_xpath)
+    if (square_footage.text):
+      square_footage = int(square_footage.text.replace(",", ""))
+
+    # Grab year built
+    year_built = driver.find_element(By.XPATH, "//div[contains(text(),'Year Built')]/following-sibling::div")
+    if (year_built.text):
+      year_built = int(year_built.text.replace(",", ""))
+
+    # Filter by public record
+    public_record = driver.find_element(By.XPATH, "//span[text()='Public Record']/preceding-sibling::input")
+    driver.execute_script("arguments[0].click()", public_record)
+
+    # Setting Sale Date Min doesn't work because date picker is finicky
+    #sale_date_min = driver.find_element(By.CSS_SELECTOR, "input[name='saleDateMin']")
+    #three_months_ago = (datetime.today() - relativedelta(months=3)).replace(day=1).strftime("%m/%d/%Y")
+    #sale_date_min.clear()
+    #sale_date_min.send_keys(three_months_ago)
+    
+    # Grab all comps and take the average
+    # #e4f3e6 is the light green that indicates public record
+    sale_prices = driver.find_elements(By.XPATH, "//div[contains(@style, '#e4f3e6')]/div[@col-id='saleAmount']")
+    avg_price = 0
+    for price_obj in sale_prices:
+      price = Decimal(sub(r"[^\d.]", "", price_obj.text))
+      avg_price += price
+    if len(sale_prices):
+      avg_price /= len(sale_prices)
+
+    return {
+      "owner": owner,
+      "mortgage": mortgage,
+      "square_footage": square_footage,
+      "distressed": distressed,
+      "year_built": year_built,
+      "average_sale_price": avg_price
+    }
+  # end of get_info_from_propstream
+
+  def sign_into_compass(email, password):
+    log_in = wait_for_element_located((By.CSS_SELECTOR, "button[data-label='Log In']"), SEARCH_TIMEOUT)
+    log_in.click()
+    driver.implicitly_wait(DEFAULT_TIMEOUT)
+    driver.find_element(By.CSS_SELECTOR, ".uc-authentication button:nth-child(5)").click()
+    if email:
+      driver.find_element(By.CSS_SELECTOR, "input[name='email']").send_keys(email)
+      driver.find_element(By.ID, "continue").click()
+      if password:
+        driver.find_element(By.CSS_SELECTOR, "input[name='password']").send_keys(password)
+        driver.find_element(By.ID, "continue").click()
+    
+    # Wait for user to log into compass.com
+    # Wait for "Forgot Password" button to disappear
+    forgot_password = driver.find_element(By.CSS_SELECTOR, ".uc-authentication-footer button")
+    WebDriverWait(driver, LOGIN_TIMEOUT).until(EC.staleness_of(forgot_password))
+  # end of sign_into_compass
+
+  def get_info_from_compass(property_address):
+    search = wait_until_clickable((By.CSS_SELECTOR, "input[aria-describedBy='location-lookup-input-description']"))
+    search.click()
+    search.send_keys(property_address)
+    try:
+      mls_number = wait_for_element_located((By.XPATH, "//th[text()='MLS #']/following-sibling::td")).text
+    except TimeoutException:
+      return 1
+    try:
+      try:
+        remarks = driver.find_element(By.XPATH, "//div[contains(@class, 'textIntent-body')]/div/span[2]").get_attribute("textContent")
+      except Exception as e:
+        cprint("red", e)
+        remarks = driver.find_element(By.XPATH, "//div[contains(@class, 'textIntent-body')]/div/span").text
+    except Exception as e:
+      cprint("red", e)
+      remarks = "Didn't find on Compass"
+
+    # Get Listing Agent Info
+    try:
+      listing_agent_xpath = "//div[contains(@class, 'contact-agent')]/p[1]"
+      listing_agent = driver.find_element(By.XPATH, listing_agent_xpath).text
+    except:
+      listing_agent = "Didn't find on Compass"
+    try:
+      listing_brokerage_xpath = "//div[contains(@class, 'contact-agent')]/p[2]"
+      listing_brokerage = driver.find_element(By.XPATH, listing_brokerage_xpath).text
+    except:
+      listing_brokerage = "Didn't find on Compass"
+    try:
+      listing_agent_dre_xpath = "//div[contains(@class, 'contact-agent')]/p[contains(text(), 'DRE #')]"
+      listing_agent_dre = driver.find_element(By.XPATH, listing_agent_dre_xpath).text
+      listing_agent_dre = listing_agent_dre.replace("DRE #", "")
+    except:
+      listing_agent_dre = "Didn't find on Compass"
+    try:
+      listing_agent_phone_xpath = "//div[contains(@class, 'contact-agent')]/div/p[contains(text(), 'P:')]"
+      listing_agent_phone = driver.find_element(By.XPATH, listing_agent_phone_xpath).text
+    except:
+      listing_agent_phone = "Didn't find on Compass"
+    try:
+      listing_agent_email_xpath = "//div[contains(@class, 'contact-agent')]/a[contains(@href, 'mailto')]"
+      listing_agent_email = driver.find_element(By.XPATH, listing_agent_email_xpath).text
+    except:
+      listing_agent_email = "Didn't find on Compass"
+    
+    # Get Ask Price
+    try:
+      ask_price = driver.find_element(By.XPATH, "//div[text()='Price']//preceding-sibling::div").text
+    except Exception as e:
+      cprint("red", e)
+      ask_price = "Didn't find on Compass"
+    try:
+      days_on_market = "Days on Compass: " + driver.find_element(By.XPATH, "//th[text()='Days on Compass']/following-sibling::td").text
+    except NoSuchElementException:
+      days_on_market = "Days on Compass: N/A"
+    try:
+      pool = driver.find_element(By.XPATH, "//div[contains(text(), 'Pool')]/span").text
+    except NoSuchElementException:
+      pool = "Didn't find on Compass"
+    return {
+      "mls_number": mls_number,
+      "remarks": remarks,
+      "listing_agent": listing_agent,
+      "listing_brokerage": listing_brokerage,
+      "listing_agent_dre": listing_agent_dre,
+      "listing_agent_phone": listing_agent_phone,
+      "listing_agent_email": listing_agent_email,
+      "ask_price": ask_price,
+      "days_on_market": days_on_market,
+      "pool": pool,
+      "pictures": driver.current_url
+    }
+  # end of get_info_from_compass
+
+  def get_info_from_redfin(property_address):
+    driver.get("https://www.google.com/")
+    search = driver.find_element(By.CSS_SELECTOR, "input[title='Search']")
+    search.send_keys(f"redfin {property_address}")
+    driver.find_element(By.CSS_SELECTOR, "input[value='Google Search']").submit()
+    try:
+      redfin_link = driver.find_element(By.CSS_SELECTOR, f"a[href*='{URL_REDFIN}']")
+      redfin_link.click()
+    except Exception as e:
+      cprint("red", e)
+      return 1
+    try:
+      mls_number = wait_for_element_located((By.XPATH, "//div[contains(@class, 'sourceContent')]/span[2]")).text
+    except Exception as e:
+      cprint("red", e)
+      return 1
+    try:
+      remarks = driver.find_element(By.XPATH, "//div[contains(@class, 'remarks')]/p/span").text
+    except Exception as e:
+      cprint("red", e)
+      remarks = "Couldn't locate on Redfin"
+    
+    # Get Listing Agent Info
+    try:
+      listing_agent = driver.find_element(By.XPATH, "//span[contains(text(), 'Listed by')]/span[1]").text
+    except:
+      listing_agent = "Didn't find on Redfin"
+    try:
+      listing_brokerage = driver.find_element(By.XPATH, "//span[contains(text(), 'Listed by')]/span[3]").text
+    except:
+      listing_brokerage = "Didn't find on Redfin"
+    try:
+      listing_agent_dre = driver.find_element(By.XPATH, "//span[contains(text(), 'Listed by')]/span[2]").text
+    except:
+      listing_agent_dre = "Didn't find on Redfin"
+
+    # Get Ask Price
+    try:
+      ask_price = driver.find_element(By.XPATH, "//div[contains(@class, 'statsValue')]").text
+    except Exception as e:
+      cprint("red", e)
+      ask_price = "Didn't find on Redfin"
+    
+    # Get Time on Redfin
+    try:
+      days_on_market_xpath = "//span[contains(text(), 'Time on Redfin')]/ancestor::span[contains(@class,'header')]/following-sibling::span"
+      days_on_market = "Time on Redfin: " + driver.find_element(By.XPATH, days_on_market_xpath).text
+    except Exception as e:
+      cprint("red", e)
+      days_on_market = "Time on Redfin: Could not find Time on Redfin"
+    pictures = driver.current_url
+    return {
+      "mls_number": mls_number,
+      "remarks": remarks,
+      "listing_agent": listing_agent,
+      "listing_brokerage": listing_brokerage,
+      "listing_agent_dre": listing_agent_dre,
+      "listing_agent_phone": "Didn't find on Redfin",
+      "listing_agent_email": "Didn't find on Redfin",
+      "ask_price": ask_price,
+      "days_on_market": days_on_market,
+      "pool": "Redfin doesn't list pool status",
+      "pictures": pictures
+    }
+  # end of get_info_from_redfin
+
+  def send_text_to_word_counter(text):
+    driver.execute_script("window.open('https://wordcounter.net/');")
+    recently_opened_tab = driver.window_handles[len(driver.window_handles) - 1]
+    driver.switch_to.window(recently_opened_tab)
+    driver.find_element(By.TAG_NAME, "textarea").send_keys(text)
+  # end of send_text_to_word_counter
+
   driver.get("https://login.propstream.com/")
   sign_into_propstream(PROPSTREAM_EMAIL, PROPSTREAM_PASSWORD)
   propstream_info = get_info_from_propstream(PROPERTY_ADDRESS)
@@ -338,6 +389,7 @@ def main():
   notes += f"-Agent's Email: {listing_info['listing_agent_email']}\n"
   notes += f"-Owner: {propstream_info['owner']}\n"
   notes += f"-Est. Mortgage: {propstream_info['mortgage']}\n"
+  notes += f"-Distressed: {propstream_info['distressed']}\n"
   notes += f"-Year Built: {propstream_info['year_built']}\n"
   notes += f"-Pool: {listing_info['pool']}\n"
   notes += f"Pictures: {listing_info['pictures']}\n"
