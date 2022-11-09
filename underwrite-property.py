@@ -1,5 +1,6 @@
 import datetime
 import json
+import re
 from decimal import Decimal
 from re import sub
 from selenium import webdriver
@@ -26,9 +27,9 @@ def cprint(color, text):
   print(f"{COLORS[color]}{text}{COLORS['white']}")
 
 def main():
-  cprint("cyan", "Running UnderwriteProperty...")
+  cprint("green", "Running UnderwriteProperty...")
   def get_config():
-    cprint("cyan", "Reading config.json...")
+    cprint("green", "Reading config.json...")
     with open("config.json", "r") as file:
       return json.load(file)
   # end of get_config
@@ -168,13 +169,11 @@ def main():
     
     # Grab all comps and take the average
     # #e4f3e6 is the light green that indicates public record
-    sale_prices = driver.find_elements(By.XPATH, "//div[contains(@style, '#e4f3e6')]/div[@col-id='saleAmount']")
-    avg_price = 0
-    for price_obj in sale_prices:
-      price = Decimal(sub(r"[^\d.]", "", price_obj.text))
-      avg_price += price
-    if len(sale_prices):
-      avg_price /= len(sale_prices)
+    avg_sale_price_xpath = "//div[contains(text(), 'Avg. Sale Price:')]"
+    avg_sale_price = driver.find_element(By.XPATH, avg_sale_price_xpath).text
+    price_regex = r"(\$[\d,]*)"
+    price_match = re.search(price_regex, avg_sale_price)
+    avg_sale_price = Decimal(sub(r"[^\d.]", "", price_match.group(1)))
 
     return {
       "owner": owner,
@@ -182,7 +181,7 @@ def main():
       "square_footage": square_footage,
       "distressed": distressed,
       "year_built": year_built,
-      "average_sale_price": avg_price
+      "average_sale_price": avg_sale_price
     }
   # end of get_info_from_propstream
 
@@ -396,11 +395,11 @@ def main():
   notes += "Listing Remarks:\n"
   notes += f"\"{listing_info['remarks']}\"\n\n"
 
-  avg_price = "${:,.2f}".format(propstream_info['average_sale_price'])
-  avg_price_multiply = "${:,.2f}".format(propstream_info['average_sale_price'] * Decimal('0.6'))
+  avg_sale_price = "${:,.2f}".format(propstream_info['average_sale_price'])
+  avg_sale_price_multiply = "${:,.2f}".format(propstream_info['average_sale_price'] * Decimal('0.6'))
   notes += "Quick Check:\n"
-  notes += f"-Average Market Sale Price: {avg_price}\n"
-  notes += f"-Price * 60%: {avg_price_multiply}\n\n"
+  notes += f"-Average Market Sale Price: {avg_sale_price}\n"
+  notes += f"-Price * 60%: {avg_sale_price_multiply}\n\n"
 
   notes += f"*ORIGINAL {CURRENT_DATE}*\n"
   notes += f"Asking Price {listing_info['ask_price']}\n"
