@@ -11,6 +11,15 @@
     "email": "",
     "password": ""
   },
+  "renovation": {
+    "tier_1": 30,
+    "tier_1.5": 50,
+    "tier_2": 70,
+    "tier_2.5": 80,
+    "tier_3": 90,
+    "tier_3.5": 105,
+    "tier_1925": 125
+  },
   "timeouts": {
     "default": 10,
     "login": 60,
