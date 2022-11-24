@@ -27,9 +27,7 @@ def cprint(color, text):
   print(f"{COLORS[color]}{text}{COLORS['white']}")
 
 def main():
-  cprint("green", "Running UnderwriteProperty...")
   def get_config():
-    cprint("green", "Reading config.json...")
     with open("config.json", "r") as file:
       return json.load(file)
   # end of get_config
@@ -58,22 +56,31 @@ def main():
   PROPSTREAM_ZOOM = config["propstream"]["zoom"]
   COMPASS_EMAIL = config["compass"]["email"]
   COMPASS_PASSWORD = config["compass"]["password"]
-  DEFAULT_TIMEOUT = config["timeouts"]["default"]
-  LOGIN_TIMEOUT = config["timeouts"]["login"]
-  SEARCH_TIMEOUT = config["timeouts"]["search"]
+  RENO_T1 = config["renovation"]["tier_1"]
+  RENO_T1_5 = config["renovation"]["tier_1.5"]
+  RENO_T2 = config["renovation"]["tier_2"]
+  RENO_T2_5 = config["renovation"]["tier_2.5"]
+  RENO_T3 = config["renovation"]["tier_3"]
+  RENO_T3_5 = config["renovation"]["tier_3.5"]
+  RENO_T1925 = config["renovation"]["tier_1925"]
+  TIMEOUT_DEFAULT = config["timeouts"]["default"]
+  TIMEOUT_LOGIN = config["timeouts"]["login"]
+  TIMEOUT_SEARCH = config["timeouts"]["search"]
   URL_REDFIN = "https://www.redfin.com/"
   #endregion Constants
+
+  cprint("green", f"Underwriting {PROPERTY_ADDRESS}...")
 
   chrome_options = initialize_chrome_options()
   driver = initialize_chrome_webdriver(chrome_options)
   actions = ActionChains(driver)
 
   #region Wait Functions
-  def wait_until_clickable(element, timeout=DEFAULT_TIMEOUT):
+  def wait_until_clickable(element, timeout=TIMEOUT_DEFAULT):
       return (WebDriverWait(driver, timeout).until(
         EC.element_to_be_clickable(element)))
 
-  def wait_for_element_located(element, timeout=DEFAULT_TIMEOUT):
+  def wait_for_element_located(element, timeout=TIMEOUT_DEFAULT):
     return (WebDriverWait(driver, timeout).until(
       EC.presence_of_element_located(element)))
   #endregion Wait Functions
@@ -98,7 +105,7 @@ def main():
       submit.click()
     # Wait until property address field after login is clickable
     input_css = "input[placeholder='Enter County, City, Zip Code(s) or APN #']"
-    wait_for_element_located((By.CSS_SELECTOR, input_css), LOGIN_TIMEOUT)
+    wait_for_element_located((By.CSS_SELECTOR, input_css), TIMEOUT_LOGIN)
   # end of sign_into_propstream
 
   def get_info_from_propstream(property_address):
@@ -112,7 +119,7 @@ def main():
     try:
       # Click Details button
       details_xpath = "//span[text()='Details']"
-      details = wait_for_element_located((By.XPATH, details_xpath), SEARCH_TIMEOUT)
+      details = wait_for_element_located((By.XPATH, details_xpath), TIMEOUT_SEARCH)
       actions.move_to_element(details).perform()
       details.click()
     except TimeoutException:
@@ -120,7 +127,7 @@ def main():
 
     # Grab owner and mortgage info
     owner_xpath = "//div[text()='Owner 1 Name']/following-sibling::div"
-    owner = wait_for_element_located((By.XPATH, owner_xpath), SEARCH_TIMEOUT)
+    owner = wait_for_element_located((By.XPATH, owner_xpath), TIMEOUT_SEARCH)
     owner = owner.text
     mortgage_xpath = "//div[text()='Est. Mortgage Balance']/preceding-sibling::div"
     mortgage = driver.find_element(By.XPATH, mortgage_xpath).text
@@ -132,6 +139,11 @@ def main():
     # We don't want to waste our time with bank-owned properties.
     distressed_xpath = "//div[contains(text(),'Distressed')]/following-sibling::div"
     distressed = driver.find_element(By.XPATH, distressed_xpath).text
+
+    # Grab Distressed Condition
+    # We don't want to waste our time with bank-owned properties.
+    owner_status_xpath = "//div[contains(text(),'Owner Status')]/following-sibling::div"
+    owner_status = driver.find_element(By.XPATH, owner_status_xpath).text
 
     # Filter by year built
     year_built_xpath = "//div[contains(text(),'Year Built')]/following-sibling::div"
@@ -156,6 +168,8 @@ def main():
     year_built = driver.find_element(By.XPATH, "//div[contains(text(),'Year Built')]/following-sibling::div")
     if (year_built.text):
       year_built = int(year_built.text.replace(",", ""))
+    else:
+      year_built = ""
 
     # Filter by public record
     public_record = driver.find_element(By.XPATH, "//span[text()='Public Record']/preceding-sibling::input")
@@ -170,25 +184,29 @@ def main():
     # Grab all comps and take the average
     # #e4f3e6 is the light green that indicates public record
     avg_sale_price_xpath = "//div[contains(text(), 'Avg. Sale Price:')]"
-    avg_sale_price = driver.find_element(By.XPATH, avg_sale_price_xpath).text
-    price_regex = r"(\$[\d,]*)"
-    price_match = re.search(price_regex, avg_sale_price)
-    avg_sale_price = Decimal(sub(r"[^\d.]", "", price_match.group(1)))
+    try:
+      avg_sale_price = driver.find_element(By.XPATH, avg_sale_price_xpath).text
+      price_regex = r"(\$[\d,]*)"
+      price_match = re.search(price_regex, avg_sale_price)
+      avg_sale_price = Decimal(sub(r"[^\d.]", "", price_match.group(1)))
+    except:
+      avg_sale_price = "N/A"
 
     return {
       "owner": owner,
       "mortgage": mortgage,
       "square_footage": square_footage,
       "distressed": distressed,
+      "owner_status": owner_status,
       "year_built": year_built,
       "average_sale_price": avg_sale_price
     }
   # end of get_info_from_propstream
 
   def sign_into_compass(email, password):
-    log_in = wait_for_element_located((By.CSS_SELECTOR, "button[data-label='Log In']"), SEARCH_TIMEOUT)
+    log_in = wait_for_element_located((By.CSS_SELECTOR, "button[data-label='Log In']"), TIMEOUT_SEARCH)
     log_in.click()
-    driver.implicitly_wait(DEFAULT_TIMEOUT)
+    driver.implicitly_wait(TIMEOUT_DEFAULT)
     driver.find_element(By.CSS_SELECTOR, ".uc-authentication button:nth-child(5)").click()
     if email:
       driver.find_element(By.CSS_SELECTOR, "input[name='email']").send_keys(email)
@@ -200,7 +218,7 @@ def main():
     # Wait for user to log into compass.com
     # Wait for "Forgot Password" button to disappear
     forgot_password = driver.find_element(By.CSS_SELECTOR, ".uc-authentication-footer button")
-    WebDriverWait(driver, LOGIN_TIMEOUT).until(EC.staleness_of(forgot_password))
+    WebDriverWait(driver, TIMEOUT_LOGIN).until(EC.staleness_of(forgot_password))
   # end of sign_into_compass
 
   def get_info_from_compass(property_address):
@@ -225,28 +243,31 @@ def main():
     try:
       listing_agent_xpath = "//div[contains(@class, 'contact-agent')]/p[1]"
       listing_agent = driver.find_element(By.XPATH, listing_agent_xpath).text
-    except:
-      listing_agent = "Didn't find on Compass"
-    try:
+
       listing_brokerage_xpath = "//div[contains(@class, 'contact-agent')]/p[2]"
       listing_brokerage = driver.find_element(By.XPATH, listing_brokerage_xpath).text
-    except:
-      listing_brokerage = "Didn't find on Compass"
-    try:
+
       listing_agent_dre_xpath = "//div[contains(@class, 'contact-agent')]/p[contains(text(), 'DRE #')]"
       listing_agent_dre = driver.find_element(By.XPATH, listing_agent_dre_xpath).text
-      listing_agent_dre = listing_agent_dre.replace("DRE #", "")
-    except:
-      listing_agent_dre = "Didn't find on Compass"
-    try:
+
+      listed_by = f"{listing_brokerage}, {listing_agent}, {listing_agent_dre}"
+
       listing_agent_phone_xpath = "//div[contains(@class, 'contact-agent')]/div/p[contains(text(), 'P:')]"
       listing_agent_phone = driver.find_element(By.XPATH, listing_agent_phone_xpath).text
-    except:
-      listing_agent_phone = "Didn't find on Compass"
-    try:
+      phone_regex = r".*(\d{3})\.(\d{3})\.(\d{4})"
+      listing_agent_phone = re.sub(phone_regex, r"(\1) \2-\3", listing_agent_phone)
+
       listing_agent_email_xpath = "//div[contains(@class, 'contact-agent')]/a[contains(@href, 'mailto')]"
       listing_agent_email = driver.find_element(By.XPATH, listing_agent_email_xpath).text
     except:
+      try:
+        courtesy_xpath = "//span[@data-tn='courtesy-of-text']"
+        courtesy = driver.find_element(By.XPATH, courtesy_xpath).text
+        listed_by = sub("Listing Courtesy of ", "", courtesy)
+      except:
+        listed_by = "Didn't find on Compass"
+
+      listing_agent_phone = "Didn't find on Compass"
       listing_agent_email = "Didn't find on Compass"
     
     # Get Ask Price
@@ -266,9 +287,7 @@ def main():
     return {
       "mls_number": mls_number,
       "remarks": remarks,
-      "listing_agent": listing_agent,
-      "listing_brokerage": listing_brokerage,
-      "listing_agent_dre": listing_agent_dre,
+      "listed_by": listed_by,
       "listing_agent_phone": listing_agent_phone,
       "listing_agent_email": listing_agent_email,
       "ask_price": ask_price,
@@ -302,17 +321,15 @@ def main():
     
     # Get Listing Agent Info
     try:
-      listing_agent = driver.find_element(By.XPATH, "//span[contains(text(), 'Listed by')]/span[1]").text
+      listing_agent_xpath = "//span[contains(text(), 'Listed by')]/span[1]"
+      listing_agent = driver.find_element(By.XPATH, listing_agent_xpath).text
+      listing_brokerage_xpath = "//span[contains(text(), 'Listed by')]/span[3]"
+      listing_brokerage = driver.find_element(By.XPATH, listing_brokerage_xpath).text
+      listing_agent_dre_xpath = "//span[contains(text(), 'Listed by')]/span[2]"
+      listing_agent_dre = driver.find_element(By.XPATH, listing_agent_dre_xpath).text
+      listed_by = f"{listing_brokerage}, {listing_agent}, {listing_agent_dre}"
     except:
-      listing_agent = "Didn't find on Redfin"
-    try:
-      listing_brokerage = driver.find_element(By.XPATH, "//span[contains(text(), 'Listed by')]/span[3]").text
-    except:
-      listing_brokerage = "Didn't find on Redfin"
-    try:
-      listing_agent_dre = driver.find_element(By.XPATH, "//span[contains(text(), 'Listed by')]/span[2]").text
-    except:
-      listing_agent_dre = "Didn't find on Redfin"
+      listed_by = "Didn't find on Redfin"
 
     # Get Ask Price
     try:
@@ -332,11 +349,9 @@ def main():
     return {
       "mls_number": mls_number,
       "remarks": remarks,
-      "listing_agent": listing_agent,
-      "listing_brokerage": listing_brokerage,
-      "listing_agent_dre": listing_agent_dre,
-      "listing_agent_phone": "Didn't find on Redfin",
-      "listing_agent_email": "Didn't find on Redfin",
+      "listed_by": listed_by,
+      "listing_agent_phone": "Redfin doesn't show this info",
+      "listing_agent_email": "Redfin doesn't show this info",
       "ask_price": ask_price,
       "days_on_market": days_on_market,
       "pool": "Redfin doesn't list pool status",
@@ -367,9 +382,7 @@ def main():
     listing_info = {
       "mls_number": "Couldn't find on Compass or Redfin",
       "remarks": "Couldn't find on Compass or Redfin",
-      "listing_agent": "Couldn't find on Compass or Redfin",
-      "listing_brokerage": "Couldn't find on Compass or Redfin",
-      "listing_agent_dre": "Couldn't find on Compass or Redfin",
+      "listed_by": "Couldn't find on Compass or Redfin",
       "listing_agent_phone": "Couldn't find on Compass or Redfin",
       "listing_agent_email": "Couldn't find on Compass or Redfin",
       "ask_price": "Couldn't find on Compass or Redfin",
@@ -381,13 +394,11 @@ def main():
   notes = PROPERTY_ADDRESS + "\n"
   notes += f"-MLS #: {listing_info['mls_number']}\n"
   notes += f"-{listing_info['days_on_market']} as of {CURRENT_DATE}\n"
-  notes += f"-Listing Agent: {listing_info['listing_agent']}\n"
-  notes += f"-Brokerage: {listing_info['listing_brokerage']}\n"
-  notes += f"-DRE #: {listing_info['listing_agent_dre']}\n"
+  notes += f"-Listed by: {listing_info['listed_by']}\n"
   notes += f"-Agent's Phone: {listing_info['listing_agent_phone']}\n"
   notes += f"-Agent's Email: {listing_info['listing_agent_email']}\n"
   notes += f"-Owner: {propstream_info['owner']}\n"
-  notes += f"-Est. Mortgage: {propstream_info['mortgage']}\n"
+  notes += f"-Owner Status: {propstream_info['owner_status']}\n"
   notes += f"-Distressed: {propstream_info['distressed']}\n"
   notes += f"-Year Built: {propstream_info['year_built']}\n"
   notes += f"-Pool: {listing_info['pool']}\n"
@@ -395,11 +406,12 @@ def main():
   notes += "Listing Remarks:\n"
   notes += f"\"{listing_info['remarks']}\"\n\n"
 
-  avg_sale_price = "${:,.2f}".format(propstream_info['average_sale_price'])
-  avg_sale_price_multiply = "${:,.2f}".format(propstream_info['average_sale_price'] * Decimal('0.6'))
-  notes += "Quick Check:\n"
-  notes += f"-Average Market Sale Price: {avg_sale_price}\n"
-  notes += f"-Price * 60%: {avg_sale_price_multiply}\n\n"
+  if propstream_info['average_sale_price'] != "N/A":
+    avg_sale_price = "${:,.2f}".format(propstream_info['average_sale_price'])
+    avg_sale_price_multiply = "${:,.2f}".format(propstream_info['average_sale_price'] * Decimal('0.6'))
+    notes += "Quick Check:\n"
+    notes += f"-Average Market Sale Price: {avg_sale_price}\n"
+    notes += f"-Price * 60%: {avg_sale_price_multiply}\n\n"
 
   notes += f"*ORIGINAL {CURRENT_DATE}*\n"
   notes += f"Asking Price {listing_info['ask_price']}\n"
@@ -410,7 +422,11 @@ def main():
   notes += "Wholesale Discount 80%\n"
   notes += "MAO Wholesale \n"
   notes += "% of ARV \n"
-  notes += "Amount under asking \n\n"
+  notes += "Amount under asking \n"
+  notes += f"Est. Mortgage {propstream_info['mortgage']}\n"
+  notes += "Seller Profit Est \n"
+
+  notes += "\n"
 
   notes += "Comp:\n"
   notes += "-#### Street\n"
@@ -420,27 +436,37 @@ def main():
 
   notes += "ARV Adjustments:\n"
   notes += "-Comp Sold For: \n"
+  notes += "-Comp PPSF: $___.__\n"
+  notes += "-Subj Adj ARV: $___k\n"
+  notes += "-Market Adjustment (-10%): $__k\n"
   notes += "-Comp has extra bed: -$10k\n"
   notes += "-Comp has extra bath: -$10k\n"
-  notes += "Final ARV: \n\n"
+  notes += "Final ARV (rounded down): \n\n"
 
-  tier_1 = '${:,}'.format(propstream_info['square_footage'] * 30)
-  tier_1_5 = '${:,}'.format(propstream_info['square_footage'] * 45)
-  tier_2 = '${:,}'.format(propstream_info['square_footage'] * 60)
-  tier_2_5 = '${:,}'.format(propstream_info['square_footage'] * 75)
-  tier_3 = '${:,}'.format(propstream_info['square_footage'] * 90)
-  tier_3_5 = '${:,}'.format(propstream_info['square_footage'] * 105)
+  tier_1 = '${:,}'.format(propstream_info['square_footage'] * RENO_T1)
+  tier_1_5 = '${:,}'.format(propstream_info['square_footage'] * RENO_T1_5)
+  tier_2 = '${:,}'.format(propstream_info['square_footage'] * RENO_T2)
+  tier_2_5 = '${:,}'.format(propstream_info['square_footage'] * RENO_T2_5)
+  tier_3 = '${:,}'.format(propstream_info['square_footage'] * RENO_T3)
+  tier_3_5 = '${:,}'.format(propstream_info['square_footage'] * RENO_T3_5)
+  tier_1925 = '${:,}'.format(propstream_info['square_footage'] * RENO_T1925)
 
 
   notes += "Reno:\n"
-  notes += f"-Tier 1 ($30/sf): {tier_1} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
-  notes += f"-Tier 1.5 ($45/sf): {tier_1_5} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
-  notes += f"-Tier 2 ($60/sf): {tier_2} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
-  notes += f"-Tier 2.5 ($75/sf): {tier_2_5} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
-  notes += f"-Tier 3 ($90/sf): {tier_3} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
-  notes += f"-Tier 3.5 ($105/sf): {tier_3_5} on {'{:,}'.format(propstream_info['square_footage'])}sf"
+  notes += f"-Tier 1 (${RENO_T1}/sf): {tier_1} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
+  notes += f"-Tier 1.5 (${RENO_T1_5}/sf): {tier_1_5} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
+  notes += f"-Tier 2 (${RENO_T2}/sf): {tier_2} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
+  notes += f"-Tier 2.5 (${RENO_T2_5}/sf): {tier_2_5} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
+  notes += f"-Tier 3 (${RENO_T3}/sf): {tier_3} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
+  notes += f"-Tier 3.5 (${RENO_T3_5}/sf): {tier_3_5} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
+
+  year_built = propstream_info['year_built']
+  if year_built == "" or year_built <= 1925:
+    notes += f"-Year Built <= 1925 (${RENO_T1925}/sf): {tier_1925} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
+  
+  notes += "Final Reno Est (rounded up): $___k\n"
+
   send_text_to_word_counter(notes)
-  # send_text_to_word_counter("Hi")
 
 if __name__ == "__main__":
   main()
