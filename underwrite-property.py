@@ -12,25 +12,12 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from webdriver_manager.chrome import ChromeDriverManager
-
-COLORS = {
-  "white": '\033[0m', # default,
-  "red": '\033[31m',
-  "green": '\033[32m',
-  "yellow": '\033[33m',
-  "blue": '\033[34m',
-  "magenta": '\033[35m',
-  "cyan": '\033[36m'
-}
-
-def cprint(color, text):
-  print(f"{COLORS[color]}{text}{COLORS['white']}")
+from python_utils.functions import cprint, load_json
+from python_utils.logging import setup_logging, get_line_number
+from selenium_utils import Base, JavaScript, Wait
 
 def main():
-  def get_config():
-    with open("config.json", "r") as file:
-      return json.load(file)
-  # end of get_config
+  setup_logging()
 
   def initialize_chrome_options():
     # Initialize special chrome options for selenium to utilize
@@ -46,7 +33,7 @@ def main():
     return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
   # end of initialize_chrome_webdriver
 
-  config = get_config()
+  config = load_json("config.json")
 
   #region Constants
   CURRENT_DATE = datetime.date.today().strftime('%m/%d/%y')  
@@ -69,21 +56,13 @@ def main():
   URL_REDFIN = "https://www.redfin.com/"
   #endregion Constants
 
-  cprint("green", f"Underwriting {PROPERTY_ADDRESS}...")
+  cprint(f"<g>Underwriting {PROPERTY_ADDRESS}...")
 
-  chrome_options = initialize_chrome_options()
-  driver = initialize_chrome_webdriver(chrome_options)
+  base = Base()
+  driver = base.initialize_driver()
   actions = ActionChains(driver)
-
-  #region Wait Functions
-  def wait_until_clickable(element, timeout=TIMEOUT_DEFAULT):
-      return (WebDriverWait(driver, timeout).until(
-        EC.element_to_be_clickable(element)))
-
-  def wait_for_element_located(element, timeout=TIMEOUT_DEFAULT):
-    return (WebDriverWait(driver, timeout).until(
-      EC.presence_of_element_located(element)))
-  #endregion Wait Functions
+  wait = Wait(driver, TIMEOUT_DEFAULT)
+  js = JavaScript(driver)
 
   def switch_to_recently_opened_tab():
     driver.switch_to.window(driver.window_handles[len(driver.window_handles) - 1])
@@ -91,7 +70,7 @@ def main():
 
   def sign_into_propstream(email, password):
     # Autofill email and password fields.
-    wait_until_clickable((By.CSS_SELECTOR, "input[name='username']"))
+    wait.until_clickable((By.CSS_SELECTOR, "input[name='username']"))
     if (email):
       input_email_css = "input[name='username']"
       input_email = driver.find_element(By.CSS_SELECTOR, input_email_css)
@@ -105,7 +84,7 @@ def main():
       submit.click()
     # Wait until property address field after login is clickable
     input_css = "input[placeholder='Enter County, City, Zip Code(s) or APN #']"
-    wait_for_element_located((By.CSS_SELECTOR, input_css), TIMEOUT_LOGIN)
+    wait.for_element_located((By.CSS_SELECTOR, input_css), TIMEOUT_LOGIN)
   # end of sign_into_propstream
 
   def get_info_from_propstream(property_address):
@@ -113,13 +92,13 @@ def main():
     # Search address
     input_placeholder = "Enter County, City, Zip Code(s) or APN #"
     input_xpath = f"//input[@placeholder='{input_placeholder}']"
-    input = wait_until_clickable((By.XPATH, input_xpath))
+    input = wait.until_clickable((By.XPATH, input_xpath))
     input.send_keys(property_address)
     
     try:
       # Click Details button
       details_xpath = "//span[text()='Details']"
-      details = wait_for_element_located((By.XPATH, details_xpath), TIMEOUT_SEARCH)
+      details = wait.for_element_located((By.XPATH, details_xpath), TIMEOUT_SEARCH)
       actions.move_to_element(details).perform()
       details.click()
     except TimeoutException:
@@ -127,7 +106,7 @@ def main():
 
     # Grab owner and mortgage info
     owner_xpath = "//div[text()='Owner 1 Name']/following-sibling::div"
-    owner = wait_for_element_located((By.XPATH, owner_xpath), TIMEOUT_SEARCH)
+    owner = wait.for_element_located((By.XPATH, owner_xpath), TIMEOUT_SEARCH)
     owner = owner.text
     mortgage_xpath = "//div[text()='Est. Mortgage Balance']/preceding-sibling::div"
     mortgage = driver.find_element(By.XPATH, mortgage_xpath).text
@@ -147,7 +126,7 @@ def main():
 
     # Filter by year built
     year_built_xpath = "//div[contains(text(),'Year Built')]/following-sibling::div"
-    year_built = wait_for_element_located((By.XPATH, year_built_xpath))
+    year_built = wait.for_element_located((By.XPATH, year_built_xpath))
     actions.move_to_element(year_built).perform()
     if (year_built.text):
       year_built = int(year_built.text)
@@ -204,7 +183,7 @@ def main():
   # end of get_info_from_propstream
 
   def sign_into_compass(email, password):
-    log_in = wait_for_element_located((By.CSS_SELECTOR, "button[data-label='Log In']"), TIMEOUT_SEARCH)
+    log_in = wait.for_element_located((By.CSS_SELECTOR, "button[data-label='Log In']"), TIMEOUT_SEARCH)
     log_in.click()
     driver.implicitly_wait(TIMEOUT_DEFAULT)
     driver.find_element(By.CSS_SELECTOR, ".uc-authentication button:nth-child(5)").click()
@@ -222,21 +201,21 @@ def main():
   # end of sign_into_compass
 
   def get_info_from_compass(property_address):
-    search = wait_until_clickable((By.CSS_SELECTOR, "input[aria-describedBy='location-lookup-input-description']"))
+    search = wait.until_clickable((By.CSS_SELECTOR, "input[aria-describedBy='location-lookup-input-description']"))
     search.click()
     search.send_keys(property_address)
     try:
-      mls_number = wait_for_element_located((By.XPATH, "//th[text()='MLS #']/following-sibling::td")).text
+      mls_number = wait.for_element_located((By.XPATH, "//th[text()='MLS #']/following-sibling::td")).text
     except TimeoutException:
       return 1
     try:
       try:
         remarks = driver.find_element(By.XPATH, "//div[contains(@class, 'textIntent-body')]/div/span[2]").get_attribute("textContent")
       except Exception as e:
-        cprint("red", e)
+        cprint(f"<r>{e}\n<y>Line {get_line_number()}")
         remarks = driver.find_element(By.XPATH, "//div[contains(@class, 'textIntent-body')]/div/span").text
     except Exception as e:
-      cprint("red", e)
+      cprint(f"<r>{e}\n<y>Line {get_line_number()}")
       remarks = "Didn't find on Compass"
 
     # Get Listing Agent Info
@@ -274,7 +253,7 @@ def main():
     try:
       ask_price = driver.find_element(By.XPATH, "//div[text()='Price']//preceding-sibling::div").text
     except Exception as e:
-      cprint("red", e)
+      cprint(f"<r>{e}\n<y>Line {get_line_number()}")
       ask_price = "Didn't find on Compass"
     try:
       days_on_market = "Days on Compass: " + driver.find_element(By.XPATH, "//th[text()='Days on Compass']/following-sibling::td").text
@@ -306,17 +285,17 @@ def main():
       redfin_link = driver.find_element(By.CSS_SELECTOR, f"a[href*='{URL_REDFIN}']")
       redfin_link.click()
     except Exception as e:
-      cprint("red", e)
+      cprint(f"<r>{e}\n<y>Line {get_line_number()}")
       return 1
     try:
-      mls_number = wait_for_element_located((By.XPATH, "//div[contains(@class, 'sourceContent')]/span[2]")).text
+      mls_number = wait.for_element_located((By.XPATH, "//div[contains(@class, 'sourceContent')]/span[2]")).text
     except Exception as e:
-      cprint("red", e)
+      cprint(f"<r>{e}\n<y>Line {get_line_number()}")
       return 1
     try:
       remarks = driver.find_element(By.XPATH, "//div[contains(@class, 'remarks')]/p/span").text
     except Exception as e:
-      cprint("red", e)
+      cprint(f"<r>{e}\n<y>Line {get_line_number()}")
       remarks = "Couldn't locate on Redfin"
     
     # Get Listing Agent Info
@@ -335,7 +314,7 @@ def main():
     try:
       ask_price = driver.find_element(By.XPATH, "//div[contains(@class, 'statsValue')]").text
     except Exception as e:
-      cprint("red", e)
+      cprint(f"<r>{e}\n<y>Line {get_line_number()}")
       ask_price = "Didn't find on Redfin"
     
     # Get Time on Redfin
@@ -343,7 +322,7 @@ def main():
       days_on_market_xpath = "//span[contains(text(), 'Time on Redfin')]/ancestor::span[contains(@class,'header')]/following-sibling::span"
       days_on_market = "Time on Redfin: " + driver.find_element(By.XPATH, days_on_market_xpath).text
     except Exception as e:
-      cprint("red", e)
+      cprint(f"<r>{e}\n<y>Line {get_line_number()}")
       days_on_market = "Time on Redfin: Could not find Time on Redfin"
     pictures = driver.current_url
     return {
@@ -358,13 +337,6 @@ def main():
       "pictures": pictures
     }
   # end of get_info_from_redfin
-
-  def send_text_to_word_counter(text):
-    driver.execute_script("window.open('https://wordcounter.net/');")
-    recently_opened_tab = driver.window_handles[len(driver.window_handles) - 1]
-    driver.switch_to.window(recently_opened_tab)
-    driver.find_element(By.TAG_NAME, "textarea").send_keys(text)
-  # end of send_text_to_word_counter
 
   driver.get("https://login.propstream.com/")
   sign_into_propstream(PROPSTREAM_EMAIL, PROPSTREAM_PASSWORD)
@@ -466,7 +438,8 @@ def main():
   
   notes += "Final Reno Est (rounded up): $___k\n"
 
-  send_text_to_word_counter(notes)
+  with open(f"../underwriting/{PROPERTY_ADDRESS}.txt", "w", encoding="utf-8") as f:
+    f.write(notes)
 
 if __name__ == "__main__":
   main()

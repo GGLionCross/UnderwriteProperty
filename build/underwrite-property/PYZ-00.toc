@@ -728,14 +728,11 @@
   ('platform',
    'C:\\Users\\lione\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\platform.py',
    'PYMODULE'),
-  ('stringprep',
-   'C:\\Users\\lione\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\stringprep.py',
-   'PYMODULE'),
-  ('_py_abc',
-   'C:\\Users\\lione\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\_py_abc.py',
-   'PYMODULE'),
   ('tracemalloc',
    'C:\\Users\\lione\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\tracemalloc.py',
+   'PYMODULE'),
+  ('stringprep',
+   'C:\\Users\\lione\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\stringprep.py',
    'PYMODULE'),
   ('getpass',
    'C:\\Users\\lione\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\getpass.py',
@@ -751,6 +748,45 @@
    'PYMODULE'),
   ('http.cookiejar',
    'C:\\Users\\lione\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\http\\cookiejar.py',
+   'PYMODULE'),
+  ('_py_abc',
+   'C:\\Users\\lione\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\_py_abc.py',
+   'PYMODULE'),
+  ('selenium_utils',
+   'c:\\users\\lione\\documents\\microsoft vs '
+   'code\\python\\selenium\\selenium_utils\\__init__.py',
+   'PYMODULE'),
+  ('selenium_utils.wait',
+   'c:\\users\\lione\\documents\\microsoft vs '
+   'code\\python\\selenium\\selenium_utils\\wait.py',
+   'PYMODULE'),
+  ('selenium.webdriver.support.wait',
+   'C:\\Users\\lione\\Documents\\Microsoft VS '
+   'Code\\Python\\Selenium\\UnderwriteProperty\\.env\\Lib\\site-packages\\selenium\\webdriver\\support\\wait.py',
+   'PYMODULE'),
+  ('selenium.types',
+   'C:\\Users\\lione\\Documents\\Microsoft VS '
+   'Code\\Python\\Selenium\\UnderwriteProperty\\.env\\Lib\\site-packages\\selenium\\types.py',
+   'PYMODULE'),
+  ('selenium_utils.javascript',
+   'c:\\users\\lione\\documents\\microsoft vs '
+   'code\\python\\selenium\\selenium_utils\\javascript.py',
+   'PYMODULE'),
+  ('selenium_utils.base',
+   'c:\\users\\lione\\documents\\microsoft vs '
+   'code\\python\\selenium\\selenium_utils\\base.py',
+   'PYMODULE'),
+  ('python_utils.logging',
+   'c:\\users\\lione\\documents\\microsoft vs '
+   'code\\python\\python_utils\\logging.py',
+   'PYMODULE'),
+  ('python_utils',
+   'c:\\users\\lione\\documents\\microsoft vs '
+   'code\\python\\python_utils\\__init__.py',
+   'PYMODULE'),
+  ('python_utils.functions',
+   'c:\\users\\lione\\documents\\microsoft vs '
+   'code\\python\\python_utils\\functions.py',
    'PYMODULE'),
   ('webdriver_manager.chrome',
    'C:\\Users\\lione\\Documents\\Microsoft VS '
@@ -1180,14 +1216,6 @@
   ('selenium.webdriver.support.ui',
    'C:\\Users\\lione\\Documents\\Microsoft VS '
    'Code\\Python\\Selenium\\UnderwriteProperty\\.env\\Lib\\site-packages\\selenium\\webdriver\\support\\ui.py',
-   'PYMODULE'),
-  ('selenium.webdriver.support.wait',
-   'C:\\Users\\lione\\Documents\\Microsoft VS '
-   'Code\\Python\\Selenium\\UnderwriteProperty\\.env\\Lib\\site-packages\\selenium\\webdriver\\support\\wait.py',
-   'PYMODULE'),
-  ('selenium.types',
-   'C:\\Users\\lione\\Documents\\Microsoft VS '
-   'Code\\Python\\Selenium\\UnderwriteProperty\\.env\\Lib\\site-packages\\selenium\\types.py',
    'PYMODULE'),
   ('selenium.webdriver.support.select',
    'C:\\Users\\lione\\Documents\\Microsoft VS '
