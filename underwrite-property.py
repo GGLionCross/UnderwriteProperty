@@ -1,5 +1,5 @@
 import datetime
-import json
+import os
 import re
 from decimal import Decimal
 from re import sub
@@ -363,29 +363,36 @@ def main():
       "pictures": "Couldn't find on Compass or Redfin"
     }
 
-  notes = PROPERTY_ADDRESS + "\n"
-  notes += f"-MLS #: {listing_info['mls_number']}\n"
-  notes += f"-{listing_info['days_on_market']} as of {CURRENT_DATE}\n"
-  notes += f"-Listed by: {listing_info['listed_by']}\n"
-  notes += f"-Agent's Phone: {listing_info['listing_agent_phone']}\n"
-  notes += f"-Agent's Email: {listing_info['listing_agent_email']}\n"
-  notes += f"-Owner: {propstream_info['owner']}\n"
-  notes += f"-Owner Status: {propstream_info['owner_status']}\n"
-  notes += f"-Distressed: {propstream_info['distressed']}\n"
-  notes += f"-Year Built: {propstream_info['year_built']}\n"
-  notes += f"-Pool: {listing_info['pool']}\n"
+  notes = "# BASIC INFO\n"
+  notes += f"Address: {PROPERTY_ADDRESS}\n"
+  notes += f"MLS #: {listing_info['mls_number']}\n"
+  notes += f"{listing_info['days_on_market']} as of {CURRENT_DATE}\n"
+  notes += f"Listed by: {listing_info['listed_by']}\n"
+  notes += f"Agent's Phone: {listing_info['listing_agent_phone']}\n"
+  notes += f"Agent's Email: {listing_info['listing_agent_email']}\n"
+  notes += f"Owner: {propstream_info['owner']}\n"
+  notes += f"Owner Status: {propstream_info['owner_status']}\n"
+  notes += f"Distressed: {propstream_info['distressed']}\n"
+  notes += f"Year Built: {propstream_info['year_built']}\n"
+  notes += f"Pool: {listing_info['pool']}\n"
   notes += f"Pictures: {listing_info['pictures']}\n"
-  notes += "Listing Remarks:\n"
-  notes += f"\"{listing_info['remarks']}\"\n\n"
+  notes += f"Listing Remarks: {listing_info['remarks']}\n"
+  notes += "\n"
+
+  notes += "## OTHER IMPORTANT INFORMATION\n"
+  notes += "-Sample 1\n"
+  notes += "\n"
 
   if propstream_info['average_sale_price'] != "N/A":
     avg_sale_price = "${:,.2f}".format(propstream_info['average_sale_price'])
     avg_sale_price_multiply = "${:,.2f}".format(propstream_info['average_sale_price'] * Decimal('0.6'))
-    notes += "Quick Check:\n"
-    notes += f"-Average Market Sale Price: {avg_sale_price}\n"
-    notes += f"-Price * 60%: {avg_sale_price_multiply}\n\n"
+    notes += "## QUICK TEMP CHECK\n"
+    notes += f"Average Market Sale Price: {avg_sale_price}\n"
+    notes += f"Price * 60%: {avg_sale_price_multiply}\n"
+    notes += "\n"
 
-  notes += f"*ORIGINAL {CURRENT_DATE}*\n"
+  notes += "# UNDERWRITING\n"
+  notes += f"## ORIGINAL {CURRENT_DATE}\n"
   notes += f"Asking Price {listing_info['ask_price']}\n"
   notes += "ARV \n"
   notes += "Repairs \n"
@@ -397,23 +404,28 @@ def main():
   notes += "Amount under asking \n"
   notes += f"Est. Mortgage {propstream_info['mortgage']}\n"
   notes += "Seller Profit Est \n"
-
   notes += "\n"
 
+  notes += "# COMPARABLES\n"
   notes += "Comp:\n"
-  notes += "-#### Street\n"
-  notes += "-Sold on mm/dd/yy for $___k\n"
-  notes += "-Pool: \n"
-  notes += "Compass link\n\n"
+  notes += "Address: \n"
+  notes += "Date Sold: \n"
+  notes += "Sold Price: \n"
+  notes += "Pool: \n"
+  notes += "Pictures: \n"
+  notes += "\n"
 
-  notes += "ARV Adjustments:\n"
-  notes += "-Comp Sold For: \n"
-  notes += "-Comp PPSF: $___.__\n"
-  notes += "-Subj Adj ARV: $___k\n"
-  notes += "-Market Adjustment (-10%): $__k\n"
-  notes += "-Comp has extra bed: -$10k\n"
-  notes += "-Comp has extra bath: -$10k\n"
-  notes += "Final ARV (rounded down): \n\n"
+  notes += "# ARV CALCULATIONS\n"
+  notes += "Comp Sold Price: \n"
+  notes += "Comp $ / sqft: \n"
+  notes += "Subj Adj ARV: \n"
+  notes += "Market Adjustment (-10%): \n"
+  notes += "Comp has extra bed: -$10k\n"
+  notes += "Comp has extra bath: -$10k\n"
+  notes += "Subj has extra bed: +$10k\n"
+  notes += "Subj has extra bath: +$10k\n"
+  notes += "Final ARV Estimate (rounded down): \n"
+  notes += "\n"
 
   tier_1 = '${:,}'.format(propstream_info['square_footage'] * RENO_T1)
   tier_1_5 = '${:,}'.format(propstream_info['square_footage'] * RENO_T1_5)
@@ -423,23 +435,31 @@ def main():
   tier_3_5 = '${:,}'.format(propstream_info['square_footage'] * RENO_T3_5)
   tier_1925 = '${:,}'.format(propstream_info['square_footage'] * RENO_T1925)
 
-
-  notes += "Reno:\n"
-  notes += f"-Tier 1 (${RENO_T1}/sf): {tier_1} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
-  notes += f"-Tier 1.5 (${RENO_T1_5}/sf): {tier_1_5} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
-  notes += f"-Tier 2 (${RENO_T2}/sf): {tier_2} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
-  notes += f"-Tier 2.5 (${RENO_T2_5}/sf): {tier_2_5} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
-  notes += f"-Tier 3 (${RENO_T3}/sf): {tier_3} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
-  notes += f"-Tier 3.5 (${RENO_T3_5}/sf): {tier_3_5} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
+  notes += "# REHAB ESTIMATE\n"
+  notes += f"Tier 1 (${RENO_T1}/sf): {tier_1} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
+  notes += f"Tier 1.5 (${RENO_T1_5}/sf): {tier_1_5} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
+  notes += f"Tier 2 (${RENO_T2}/sf): {tier_2} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
+  notes += f"Tier 2.5 (${RENO_T2_5}/sf): {tier_2_5} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
+  notes += f"Tier 3 (${RENO_T3}/sf): {tier_3} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
+  notes += f"Tier 3.5 (${RENO_T3_5}/sf): {tier_3_5} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
 
   year_built = propstream_info['year_built']
   if year_built == "" or year_built <= 1925:
-    notes += f"-Year Built <= 1925 (${RENO_T1925}/sf): {tier_1925} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
+    notes += f"Year Built <= 1925 (${RENO_T1925}/sf): {tier_1925} on {'{:,}'.format(propstream_info['square_footage'])}sf\n"
   
-  notes += "Final Reno Est (rounded up): $___k\n"
+  notes += "Final Rehab Estimate (rounded up): \n"
 
-  with open(f"../underwriting/{PROPERTY_ADDRESS}.txt", "w", encoding="utf-8") as f:
-    f.write(notes)
+  if not os.path.exists(f"underwriting/{PROPERTY_ADDRESS}.md"):
+    with open(f"../underwriting/{PROPERTY_ADDRESS}.md", "w", encoding="utf-8") as f:
+      f.write(notes)
+      js.alert(f"Notes written to \"{PROPERTY_ADDRESS}.md\"")
+  else:
+    i = 1
+    while not os.path.exists(f"underwriting/{PROPERTY_ADDRESS} ({i}).md"):
+      i += 1
+    with open(f"../underwriting/{PROPERTY_ADDRESS} ({i}).md", "w", encoding="utf-8") as f:
+      f.write(notes)
+      js.alert(f"Notes written to \"{PROPERTY_ADDRESS} ({i}).md\"")
 
 if __name__ == "__main__":
   main()

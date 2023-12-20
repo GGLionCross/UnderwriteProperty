@@ -1,3 +1,5 @@
 .env
 .ignore
 underwriting/*
+build
+dist
